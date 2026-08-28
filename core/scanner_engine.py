@@ -8,13 +8,13 @@ class ScannerEngine:
         data_manager,
         analyzer,
         decision,
-        risk
+        trade_levels
     ):
 
         self.data_manager = data_manager
         self.analyzer = analyzer
         self.decision = decision
-        self.risk = risk
+        self.trade_levels = trade_levels
 
     def scan_symbol(self, symbol, market):
 
@@ -24,23 +24,24 @@ class ScannerEngine:
 
             if df is None:
                 return None
-            
+
             df = df.copy()
 
             data = calculate_indicators(symbol, df)
-            print(f"DEBUG {symbol}: {data['price']}")
 
             if data is None:
                 return None
 
-            analysis = self.analyzer.analyze(data)
+            print(f"DEBUG {symbol}: {data['price']}")
+
+            analysis = self.analyzer.analyze(data, symbol)
 
             decision = self.decision.decide(
                 analysis,
                 market
             )
 
-            risk = self.risk.calculate(data)
+            risk = self.trade_levels.calculate(data)
 
             return {
 
@@ -61,10 +62,13 @@ class ScannerEngine:
                 "Confidence": analysis["confidence"],
 
                 "Decision": decision["action"],
-                "Market": decision["market"],
-                "Reasons": ", ".join(decision["reasons"])
+                "Quality": decision["quality"],
 
-            }
+                "Market": decision["market"],
+                "Reasons": ", ".join(decision["reasons"]),
+                "NewsScore": analysis["news_score"]
+
+        }
 
         except Exception as e:
 

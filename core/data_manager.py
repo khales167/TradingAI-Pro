@@ -9,43 +9,31 @@ class DataManager:
         self.cache = {}
         self.lock = threading.Lock()
 
-    def get_data(
-        self,
-        symbol,
-        period="300d",
-        interval="1d"
-    ):
+    def get_data(self, symbol):
 
-        # Check cache
-        with self.lock:
-            if symbol in self.cache:
-                print(f"✓ Cache : {symbol}")
-                return self.cache[symbol].copy()
+        print(f"Downloading {symbol}")
 
-        # Download
-        print(f"↓ Download : {symbol}")
+        try:
+            df = yf.download(
+                tickers=symbol,
+                period="1y",
+                interval="1d",
+                auto_adjust=False,
+                progress=False,
+                threads=False
+            )
 
-        df = yf.download(
-            symbol,
-            period=period,
-            interval=interval,
-            progress=False,
-            auto_adjust=False
-        )
+            print(df.tail())
 
-        # Debug
-        print(f"\n=== {symbol} ===")
-        print("Columns:", df.columns.tolist())
-        print(df.tail(1))
+            if df.empty:
+                print(f"❌ Failed to download {symbol}")
+                return None
 
-        if df.empty:
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+
+            return df
+
+        except Exception as e:
+            print(f"ERROR: {e}")
             return None
-
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = df.columns.get_level_values(0)
-
-        # Save to cache
-        with self.lock:
-            self.cache[symbol] = df.copy()
-
-        return df

@@ -6,15 +6,23 @@ import time
 
 from scanner.watchlist_manager import WatchlistManager
 
+from strategy.trade_planner import TradePlanner
+
 from core.data_manager import DataManager
 from core.analyzer import Analyzer
 from core.decision import DecisionEngine
-from core.risk import RiskManager
+from core.trade_levels import TradeLevels
 from core.ranking import RankingEngine
 from core.report import ReportGenerator
 from core.scanner_engine import ScannerEngine
 
 from market.sentiment import MarketSentiment
+from strategy.risk_manager import RiskManager
+
+from strategy.portfolio_manager import PortfolioManager
+
+from core.portfolio_monitor import PortfolioMonitor
+
 
 
 class TradingEngine:
@@ -28,12 +36,19 @@ class TradingEngine:
         self.data_manager = DataManager()
         self.analyzer = Analyzer()
         self.decision = DecisionEngine()
-        self.risk = RiskManager()
+        self.trade_levels = TradeLevels()
+        self.risk_manager = RiskManager()
+        
 
         self.ranking = RankingEngine()
         self.report = ReportGenerator()
 
         self.database = DatabaseManager()
+
+        self.portfolio = PortfolioManager()
+        self.monitor = PortfolioMonitor()
+
+        self.trade_planner = TradePlanner(self.portfolio)
 
         self.market = MarketSentiment()
 
@@ -41,7 +56,7 @@ class TradingEngine:
             self.data_manager,
             self.analyzer,
             self.decision,
-            self.risk
+            self.trade_levels
         )
 
     def run(self):
@@ -140,8 +155,16 @@ class TradingEngine:
         # ----------------------------------------
         # Display Results
         # ----------------------------------------
-
+        print("BEFORE DISPLAY:", len(self.results))
         self.display_results()
+        print("AFTER DISPLAY:", len(self.results))
+        print("\n========== DEBUG ENGINE ==========")
+        print(type(self.results))
+        print(len(self.results))
+
+        if len(self.results) > 0:
+           print(self.results[0])
+        self.trade_planner.process_trade_plans(self.results)
 
         # ----------------------------------------
         # Performance
@@ -152,6 +175,37 @@ class TradingEngine:
         print(f"Symbols scanned   : {len(self.results)}")
         print(f"Threads used      : {workers}")
         print("=" * 80)
+        # ----------------------------------------
+# Performance Summary
+# ----------------------------------------
+
+        performance = self.database.get_performance_summary()
+
+        print("\n" + "=" * 60)
+        print("              PERFORMANCE SUMMARY")
+        print("=" * 60)
+
+        print(f"Closed Trades       : {performance['total_trades']}")
+        print(f"Winners             : {performance['winners']}")
+        print(f"Losers              : {performance['losers']}")
+        print(f"Win Rate            : {performance['win_rate']:.2f}%")
+        print(f"Total Realized P/L  : ${performance['total_realized_pl']:.2f}")
+        print(f"Average Trade P/L   : ${performance['average_pl']:.2f}")
+        print(f"Average Win         : ${performance['average_win']:.2f}")
+        print(f"Average Loss        : ${performance['average_loss']:.2f}")
+
+        profit_factor = performance["profit_factor"]
+
+        if profit_factor == float("inf"):
+           print("Profit Factor       : INF")
+        else:
+           print(f"Profit Factor       : {profit_factor:.2f}")
+
+        print(f"Best Trade          : ${performance['best_trade']:.2f}")
+        print(f"Worst Trade         : ${performance['worst_trade']:.2f}")
+        print(f"Expectancy / Trade  : ${performance['expectancy']:.2f}")
+
+        print("=" * 60)
 
         # ----------------------------------------
         # Save Report
@@ -172,6 +226,17 @@ class TradingEngine:
     )
 
         print("✓ Results saved to SQLite.")
+
+        self.portfolio.show_portfolio()
+        
+        positions = self.portfolio.get_open_positions()
+
+        for position in positions:
+
+            self.monitor.analyze_position(
+            position,
+            market
+    )
 
         print("\nReport saved successfully.")
 
@@ -258,3 +323,6 @@ class TradingEngine:
             print(f"RR         : {best['RR']:.2f}")
             print("-" * 40)
             print("Scan finished successfully.")
+
+
+    

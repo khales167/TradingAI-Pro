@@ -1,4 +1,4 @@
-class RiskManager:
+class TradeLevels:
 
     def __init__(self):
 
