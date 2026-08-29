@@ -19,6 +19,16 @@ class TradePlanner:
             if stock["Decision"].upper() == "BUY"
         ]
 
+        # Rank candidates exactly as used by the
+        # position-cap validation: Score DESC, ADX DESC.
+        buys.sort(
+            key=lambda stock: (
+                stock.get("Score", 0),
+                stock.get("ADX", 0)
+            ),
+            reverse=True
+        )
+
         # ==========================================
         # Debug
         # ==========================================
@@ -28,7 +38,7 @@ class TradePlanner:
         for stock in results:
             print(stock)
 
-        print("\n========== BUY SIGNALS ==========")
+        print("\n========== BUY SIGNALS (RANKED) ==========")
         print(buys)
 
         # ==========================================
@@ -40,10 +50,47 @@ class TradePlanner:
             return
 
         # ==========================================
+        # Portfolio capacity
+        # ==========================================
+
+        risk_check = self.portfolio.portfolio_risk.can_open_new_position()
+        available_slots = risk_check["available_slots"]
+
+        if not risk_check["allowed"] or available_slots <= 0:
+            print(
+                "\n⛔ No portfolio slots available: "
+                f"{risk_check['reason']}"
+            )
+            return
+
+        # Do not waste candidate slots on symbols that
+        # are already open in the portfolio.
+        eligible_buys = [
+            stock
+            for stock in buys
+            if not self.portfolio.db.position_exists(stock["Symbol"])
+        ]
+
+        print(
+            f"\nPortfolio capacity: "
+            f"{risk_check['open_positions']}/"
+            f"{risk_check['max_positions']} open, "
+            f"{available_slots} slot(s) available."
+        )
+
+        if not eligible_buys:
+            print("\n⚠ All BUY signals already exist in the portfolio.")
+            return
+
+        # ==========================================
         # Trade Plans
         # ==========================================
 
-        for stock in buys:
+        for stock in eligible_buys:
+
+            if available_slots <= 0:
+                print("\n⛔ Portfolio is now full. Remaining BUY signals skipped.")
+                break
 
             report = self.risk_manager.calculate(
                 stock["Entry"],
@@ -62,6 +109,7 @@ class TradePlanner:
             print(f"Symbol          : {stock['Symbol']}")
             print(f"Quality         : {stock['Quality']}")
             print(f"Score           : {stock['Score']}")
+            print(f"ADX             : {stock.get('ADX', 0)}")
             print(f"Confidence      : {stock['Confidence']}%")
             print(f"Entry           : {report['Entry']}")
             print(f"Stop            : {report['Stop']}")
@@ -83,9 +131,13 @@ class TradePlanner:
                 )
 
                 if added:
-                    print("✅ Trade added to Portfolio.")
+                    available_slots -= 1
+                    print(
+                        "✅ Trade added to Portfolio. "
+                        f"Remaining slots: {available_slots}"
+                    )
                 else:
-                    print("⚠ Trade already exists.")
+                    print("⚠ Trade was not added to Portfolio.")
 
             else:
-                print("❌ Trade skipped.")
+                print("❌ Trade skipped. Checking next ranked candidate.")
