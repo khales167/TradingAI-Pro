@@ -664,7 +664,7 @@ class DatabaseManager:
         }
     def get_open_positions_count(self):
 
-        conn = self.get_connection()
+        conn = self.connect()
         cursor = conn.cursor()
 
         cursor.execute("""
