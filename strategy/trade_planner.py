@@ -71,8 +71,6 @@ class TradePlanner:
             if not self.portfolio.db.position_exists(stock["Symbol"])
         ]
 
-        selected_buys = eligible_buys[:available_slots]
-
         print(
             f"\nPortfolio capacity: "
             f"{risk_check['open_positions']}/"
@@ -80,13 +78,7 @@ class TradePlanner:
             f"{available_slots} slot(s) available."
         )
 
-        if len(eligible_buys) > len(selected_buys):
-            print(
-                f"⚠ {len(eligible_buys) - len(selected_buys)} "
-                "lower-ranked BUY candidate(s) excluded by position cap."
-            )
-
-        if not selected_buys:
+        if not eligible_buys:
             print("\n⚠ All BUY signals already exist in the portfolio.")
             return
 
@@ -94,7 +86,11 @@ class TradePlanner:
         # Trade Plans
         # ==========================================
 
-        for stock in selected_buys:
+        for stock in eligible_buys:
+
+            if available_slots <= 0:
+                print("\n⛔ Portfolio is now full. Remaining BUY signals skipped.")
+                break
 
             report = self.risk_manager.calculate(
                 stock["Entry"],
@@ -135,9 +131,13 @@ class TradePlanner:
                 )
 
                 if added:
-                    print("✅ Trade added to Portfolio.")
+                    available_slots -= 1
+                    print(
+                        "✅ Trade added to Portfolio. "
+                        f"Remaining slots: {available_slots}"
+                    )
                 else:
                     print("⚠ Trade was not added to Portfolio.")
 
             else:
-                print("❌ Trade skipped.")
+                print("❌ Trade skipped. Checking next ranked candidate.")
