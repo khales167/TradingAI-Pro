@@ -1,5 +1,6 @@
 from datetime import datetime
 from core.database import DatabaseManager
+from core.portfolio_risk_manager import PortfolioRiskManager
 import yfinance as yf
 
 
@@ -7,6 +8,7 @@ class PortfolioManager:
 
     def __init__(self):
         self.db = DatabaseManager()
+        self.portfolio_risk = PortfolioRiskManager(self.db)
 
     def add_position(
         self,
@@ -18,7 +20,16 @@ class PortfolioManager:
    ):
         if self.db.position_exists(symbol):
            print(f"⚠ {symbol} is already in portfolio.")
-           return False  
+           return False
+
+        risk_check = self.portfolio_risk.can_open_new_position()
+
+        if not risk_check["allowed"]:
+            print(
+                f"⛔ Cannot add {symbol}: "
+                f"{risk_check['reason']}"
+            )
+            return False
         
         self.db.add_position(
              symbol=symbol,
