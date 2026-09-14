@@ -21,6 +21,7 @@ class DatabaseManager:
         conn.close()
 
         return exists
+
     def __init__(self):
         Path("database").mkdir(exist_ok=True)
         self.db_path = "database/trading_ai.db"
@@ -92,7 +93,8 @@ class DatabaseManager:
            status TEXT
      )
         """)
-            # ===========================
+
+        # ===========================
         # PORTFOLIO MIGRATION
         # ===========================
 
@@ -123,12 +125,13 @@ class DatabaseManager:
                 ALTER TABLE portfolio
                 ADD COLUMN realized_pl_percent REAL
                 """
-            )    
+            )
+
         if "break_even_activated" not in columns:
             cursor.execute("""
                 ALTER TABLE portfolio
                 ADD COLUMN break_even_activated INTEGER DEFAULT 0
-            """)    
+            """)
 
         conn.commit()
         conn.close()
@@ -271,39 +274,93 @@ class DatabaseManager:
     ):
 
         conn = self.connect()
-        cursor = conn.cursor()
 
-        cursor.execute("""
+        try:
+            cursor = conn.cursor()
 
-        INSERT INTO portfolio(
+            # Lock the write transaction so the safety checks and INSERT
+            # are performed atomically.
+            cursor.execute("BEGIN IMMEDIATE")
 
-            symbol,
-            quantity,
-            entry_price,
-            stop_price,
-            target_price,
-            entry_date,
-            status
+            # =====================================
+            # DUPLICATE OPEN SYMBOL PROTECTION
+            # =====================================
 
-        )
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM portfolio
+                WHERE symbol = ?
+                AND status = 'OPEN'
+            """, (symbol,))
 
-        VALUES(?,?,?,?,?,?,?)
+            if cursor.fetchone()[0] > 0:
+                conn.rollback()
 
-        """, (
+                print(
+                    f"⛔ Cannot add {symbol}: "
+                    f"position already OPEN."
+                )
 
-            symbol,
-            quantity,
-            entry_price,
-            stop_price,
-            target_price,
-            entry_date,
-            "OPEN"
+                return False
 
-        ))
+            # =====================================
+            # MAX OPEN POSITIONS PROTECTION
+            # =====================================
 
-        conn.commit()
-        conn.close()
-      
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM portfolio
+                WHERE status = 'OPEN'
+            """)
+
+            open_positions = cursor.fetchone()[0]
+
+            if open_positions >= MAX_OPEN_POSITIONS:
+                conn.rollback()
+
+                print(
+                    f"⛔ Cannot add {symbol}: "
+                    f"MAX OPEN POSITIONS "
+                    f"({open_positions}/{MAX_OPEN_POSITIONS})"
+                )
+
+                return False
+
+            # =====================================
+            # INSERT POSITION
+            # =====================================
+
+            cursor.execute("""
+                INSERT INTO portfolio(
+                    symbol,
+                    quantity,
+                    entry_price,
+                    stop_price,
+                    target_price,
+                    entry_date,
+                    status
+                )
+                VALUES(?,?,?,?,?,?,?)
+            """, (
+                symbol,
+                quantity,
+                entry_price,
+                stop_price,
+                target_price,
+                entry_date,
+                "OPEN"
+            ))
+
+            conn.commit()
+
+            return True
+
+        except Exception:
+            conn.rollback()
+            raise
+
+        finally:
+            conn.close()
 
     def get_portfolio(self):
 
@@ -334,40 +391,18 @@ class DatabaseManager:
         conn.close()
 
         return rows
+
     def add_demo_position(self):
 
-        conn = self.connect()
-        cursor = conn.cursor()
+        return self.add_position(
+            symbol="NVDA",
+            quantity=10,
+            entry_price=190.00,
+            stop_price=180.00,
+            target_price=220.00,
+            entry_date="2026-07-30 12:00:00"
+        )
 
-        cursor.execute("""
-        INSERT INTO portfolio(
-
-          symbol,
-          quantity,
-          entry_price,
-          stop_price,
-          target_price,
-          entry_date,
-          status
-
-     )
-
-        VALUES(?,?,?,?,?,?,?)
-
-    """, (
-
-             "NVDA",
-             10,
-             190.00,
-             180.00,
-             220.00,
-             "2026-07-30 12:00:00",
-             "OPEN"
-
-    ))
-
-        conn.commit()
-        conn.close()
     def clear_portfolio(self):
 
         conn = self.connect()
@@ -378,7 +413,7 @@ class DatabaseManager:
         conn.commit()
         conn.close()
 
-        print("✅ Portfolio cleared.")    
+        print("✅ Portfolio cleared.")
 
     def close_position(
         self,
@@ -460,6 +495,7 @@ class DatabaseManager:
         )
 
         return True
+
     def activate_break_even(self, symbol, entry_price):
 
         conn = self.connect()
@@ -477,7 +513,7 @@ class DatabaseManager:
         """, (
              entry_price,
              symbol
-    ))
+        ))
 
         conn.commit()
         conn.close()
@@ -485,7 +521,8 @@ class DatabaseManager:
         print(
             f"✅ {symbol} BREAK-EVEN activated. "
             f"Stop moved to ${entry_price:.2f}"
-    )
+        )
+
     def update_stop(self, symbol, new_stop):
 
         conn = self.connect()
@@ -510,6 +547,7 @@ class DatabaseManager:
         )
 
         return True
+
     def get_closed_positions(self):
 
         conn = self.connect()
@@ -535,13 +573,12 @@ class DatabaseManager:
 
             ORDER BY exit_date DESC
         """)
-  
+
         rows = cursor.fetchall()
 
         conn.close()
 
         return rows
-
 
     def get_performance_summary(self):
 
@@ -662,6 +699,7 @@ class DatabaseManager:
             "worst_trade": round(worst_trade, 2),
             "expectancy": round(expectancy, 2)
         }
+
     def get_open_positions_count(self):
 
         conn = self.connect()
