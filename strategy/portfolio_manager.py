@@ -31,7 +31,7 @@ class PortfolioManager:
             )
             return False
         
-        self.db.add_position(
+        added = self.db.add_position(
              symbol=symbol,
              quantity=quantity,
              entry_price=entry_price,
@@ -40,7 +40,7 @@ class PortfolioManager:
              entry_date=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
          )
 
-        return True
+        return added
 
     def get_open_positions(self):
         return self.db.get_portfolio()
