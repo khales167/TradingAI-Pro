@@ -1,3 +1,4 @@
+from config import ACCOUNT_CAPITAL
 from strategy.risk_manager import RiskManager
 
 
@@ -92,14 +93,30 @@ class TradePlanner:
                 print("\n⛔ Portfolio is now full. Remaining BUY signals skipped.")
                 break
 
+            invested_capital = self.portfolio.db.get_open_invested_capital()
+            available_cash = max(
+                0,
+                ACCOUNT_CAPITAL - invested_capital
+            )
+
+            if available_cash <= 0:
+                print(
+                    "\n⛔ No available cash. Remaining BUY signals skipped."
+                )
+                break
+
             report = self.risk_manager.calculate(
                 stock["Entry"],
                 stock["Stop"],
-                stock["Target"]
+                stock["Target"],
+                available_cash=available_cash
             )
 
-            if report["Shares"] <= 0:
-                print(f"\n⚠ Invalid position size for {stock['Symbol']}")
+            if report is None or report["Shares"] <= 0:
+                print(
+                    f"\n⚠ Invalid position size for {stock['Symbol']} "
+                    f"with ${available_cash:.2f} available cash."
+                )
                 continue
 
             print("\n" + "=" * 60)
@@ -111,10 +128,16 @@ class TradePlanner:
             print(f"Score           : {stock['Score']}")
             print(f"ADX             : {stock.get('ADX', 0)}")
             print(f"Confidence      : {stock['Confidence']}%")
+            print(f"Account Capital : ${report['Capital']:.2f}")
+            print(f"Invested Capital: ${invested_capital:.2f}")
+            print(f"Available Cash  : ${report['AvailableCash']:.2f}")
+            print(f"Max Risk        : ${report['MaxLoss']:.2f}")
             print(f"Entry           : {report['Entry']}")
             print(f"Stop            : {report['Stop']}")
             print(f"Target          : {report['Target']}")
+            print(f"Risk / Share    : ${report['RiskPerShare']:.2f}")
             print(f"Shares          : {report['Shares']}")
+            print(f"Position Size   : ${report['PositionSize']:.2f}")
             print(f"Risk / Reward   : {report['RiskReward']}")
             print(f"Expected Profit : ${report['ExpectedProfit']:.2f}")
 
