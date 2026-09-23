@@ -716,3 +716,23 @@ class DatabaseManager:
         conn.close()
 
         return count
+
+    def get_open_invested_capital(self):
+
+        conn = self.connect()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT COALESCE(
+                SUM(quantity * entry_price),
+                0
+            )
+            FROM portfolio
+            WHERE status = 'OPEN'
+        """)
+
+        invested = cursor.fetchone()[0]
+
+        conn.close()
+
+        return round(float(invested), 2)
