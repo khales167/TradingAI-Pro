@@ -133,6 +133,20 @@ class DatabaseManager:
                 ADD COLUMN break_even_activated INTEGER DEFAULT 0
             """)
 
+        if "initial_stop_price" not in columns:
+            cursor.execute("""
+                ALTER TABLE portfolio
+                ADD COLUMN initial_stop_price REAL
+            """)
+
+            # Existing positions predate this column. Preserve their
+            # current stop as the best available historical baseline.
+            cursor.execute("""
+                UPDATE portfolio
+                SET initial_stop_price = stop_price
+                WHERE initial_stop_price IS NULL
+            """)
+
         conn.commit()
         conn.close()
 
@@ -336,15 +350,17 @@ class DatabaseManager:
                     quantity,
                     entry_price,
                     stop_price,
+                    initial_stop_price,
                     target_price,
                     entry_date,
                     status
                 )
-                VALUES(?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?,?)
             """, (
                 symbol,
                 quantity,
                 entry_price,
+                stop_price,
                 stop_price,
                 target_price,
                 entry_date,
@@ -375,6 +391,7 @@ class DatabaseManager:
             quantity,
             entry_price,
             stop_price,
+            initial_stop_price,
             target_price,
             entry_date,
             status,
