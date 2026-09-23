@@ -155,6 +155,11 @@ class TradePlanner:
             print(f"Invested Capital: ${invested_capital:.2f}")
             print(f"Available Cash  : ${report['AvailableCash']:.2f}")
             print(f"Max Risk        : ${report['MaxLoss']:.2f}")
+            print(
+                f"Max Position    : "
+                f"${report['MaxPositionExposure']:.2f} "
+                f"({report['MaxPositionExposurePercent']:.0f}%)"
+            )
             print(f"Portfolio Risk  : ${current_portfolio_risk:.2f}")
             print(f"Portfolio Limit : ${max_portfolio_risk:.2f}")
             print(f"Risk Budget Left: ${report['RemainingPortfolioRisk']:.2f}")
