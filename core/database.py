@@ -753,3 +753,49 @@ class DatabaseManager:
         conn.close()
 
         return round(float(invested), 2)
+
+    def get_open_portfolio_risk(self):
+
+        conn = self.connect()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT COALESCE(
+                SUM(
+                    quantity *
+                    MAX(entry_price - stop_price, 0)
+                ),
+                0
+            )
+            FROM portfolio
+            WHERE status = 'OPEN'
+        """)
+
+        risk = cursor.fetchone()[0]
+
+        conn.close()
+
+        return round(float(risk), 2)
+
+    def get_open_initial_portfolio_risk(self):
+
+        conn = self.connect()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT COALESCE(
+                SUM(
+                    quantity *
+                    ABS(entry_price - initial_stop_price)
+                ),
+                0
+            )
+            FROM portfolio
+            WHERE status = 'OPEN'
+        """)
+
+        risk = cursor.fetchone()[0]
+
+        conn.close()
+
+        return round(float(risk), 2)
