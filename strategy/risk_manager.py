@@ -1,4 +1,8 @@
-from config import ACCOUNT_CAPITAL, RISK_PER_TRADE_PERCENT
+from config import (
+    ACCOUNT_CAPITAL,
+    RISK_PER_TRADE_PERCENT,
+    MAX_POSITION_EXPOSURE_PERCENT
+)
 
 
 class RiskManager:
@@ -17,7 +21,8 @@ class RiskManager:
         stop,
         target,
         available_cash=None,
-        remaining_portfolio_risk=None
+        remaining_portfolio_risk=None,
+        max_position_exposure_percent=MAX_POSITION_EXPOSURE_PERCENT
     ):
         if entry <= 0:
             return None
@@ -57,10 +62,21 @@ class RiskManager:
             cash / entry
         )
 
+        max_position_exposure = (
+            self.capital
+            * max_position_exposure_percent
+            / 100
+        )
+
+        exposure_based_shares = int(
+            max_position_exposure / entry
+        )
+
         shares = min(
             risk_based_shares,
             cash_based_shares,
-            portfolio_risk_based_shares
+            portfolio_risk_based_shares,
+            exposure_based_shares
         )
 
         position_size = shares * entry
@@ -74,6 +90,13 @@ class RiskManager:
             "AvailableCash": round(cash, 2),
             "RiskPercent": self.risk_percent,
             "MaxLoss": round(max_loss, 2),
+            "MaxPositionExposurePercent": (
+                max_position_exposure_percent
+            ),
+            "MaxPositionExposure": round(
+                max_position_exposure,
+                2
+            ),
             "RemainingPortfolioRisk": round(
                 portfolio_risk_cap,
                 2
