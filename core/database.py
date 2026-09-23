@@ -133,6 +133,20 @@ class DatabaseManager:
                 ADD COLUMN break_even_activated INTEGER DEFAULT 0
             """)
 
+        if "initial_stop_price" not in columns:
+            cursor.execute("""
+                ALTER TABLE portfolio
+                ADD COLUMN initial_stop_price REAL
+            """)
+
+            # Existing positions predate this column. Preserve their
+            # current stop as the best available historical baseline.
+            cursor.execute("""
+                UPDATE portfolio
+                SET initial_stop_price = stop_price
+                WHERE initial_stop_price IS NULL
+            """)
+
         conn.commit()
         conn.close()
 
@@ -336,15 +350,17 @@ class DatabaseManager:
                     quantity,
                     entry_price,
                     stop_price,
+                    initial_stop_price,
                     target_price,
                     entry_date,
                     status
                 )
-                VALUES(?,?,?,?,?,?,?)
+                VALUES(?,?,?,?,?,?,?,?)
             """, (
                 symbol,
                 quantity,
                 entry_price,
+                stop_price,
                 stop_price,
                 target_price,
                 entry_date,
@@ -375,6 +391,7 @@ class DatabaseManager:
             quantity,
             entry_price,
             stop_price,
+            initial_stop_price,
             target_price,
             entry_date,
             status,
@@ -736,3 +753,49 @@ class DatabaseManager:
         conn.close()
 
         return round(float(invested), 2)
+
+    def get_open_portfolio_risk(self):
+
+        conn = self.connect()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT COALESCE(
+                SUM(
+                    quantity *
+                    MAX(entry_price - stop_price, 0)
+                ),
+                0
+            )
+            FROM portfolio
+            WHERE status = 'OPEN'
+        """)
+
+        risk = cursor.fetchone()[0]
+
+        conn.close()
+
+        return round(float(risk), 2)
+
+    def get_open_initial_portfolio_risk(self):
+
+        conn = self.connect()
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT COALESCE(
+                SUM(
+                    quantity *
+                    ABS(entry_price - initial_stop_price)
+                ),
+                0
+            )
+            FROM portfolio
+            WHERE status = 'OPEN'
+        """)
+
+        risk = cursor.fetchone()[0]
+
+        conn.close()
+
+        return round(float(risk), 2)
