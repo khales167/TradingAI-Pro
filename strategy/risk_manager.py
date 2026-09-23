@@ -16,7 +16,8 @@ class RiskManager:
         entry,
         stop,
         target,
-        available_cash=None
+        available_cash=None,
+        remaining_portfolio_risk=None
     ):
         if entry <= 0:
             return None
@@ -36,6 +37,16 @@ class RiskManager:
             max_loss / risk_per_share
         )
 
+        portfolio_risk_cap = (
+            max_loss
+            if remaining_portfolio_risk is None
+            else max(0, remaining_portfolio_risk)
+        )
+
+        portfolio_risk_based_shares = int(
+            portfolio_risk_cap / risk_per_share
+        )
+
         cash = (
             self.capital
             if available_cash is None
@@ -48,7 +59,8 @@ class RiskManager:
 
         shares = min(
             risk_based_shares,
-            cash_based_shares
+            cash_based_shares,
+            portfolio_risk_based_shares
         )
 
         position_size = shares * entry
@@ -62,6 +74,10 @@ class RiskManager:
             "AvailableCash": round(cash, 2),
             "RiskPercent": self.risk_percent,
             "MaxLoss": round(max_loss, 2),
+            "RemainingPortfolioRisk": round(
+                portfolio_risk_cap,
+                2
+            ),
             "Entry": entry,
             "Stop": stop,
             "Target": target,
