@@ -1,4 +1,4 @@
-from config import ACCOUNT_CAPITAL
+from config import ACCOUNT_CAPITAL, MAX_PORTFOLIO_RISK_PERCENT
 from strategy.risk_manager import RiskManager
 
 
@@ -105,11 +105,34 @@ class TradePlanner:
                 )
                 break
 
+            current_portfolio_risk = (
+                self.portfolio.db.get_open_portfolio_risk()
+            )
+
+            max_portfolio_risk = (
+                ACCOUNT_CAPITAL
+                * MAX_PORTFOLIO_RISK_PERCENT
+                / 100
+            )
+
+            remaining_portfolio_risk = max(
+                0,
+                max_portfolio_risk - current_portfolio_risk
+            )
+
+            if remaining_portfolio_risk <= 0:
+                print(
+                    "\n⛔ Portfolio risk budget exhausted. "
+                    "Remaining BUY signals skipped."
+                )
+                break
+
             report = self.risk_manager.calculate(
                 stock["Entry"],
                 stock["Stop"],
                 stock["Target"],
-                available_cash=available_cash
+                available_cash=available_cash,
+                remaining_portfolio_risk=remaining_portfolio_risk
             )
 
             if report is None or report["Shares"] <= 0:
@@ -132,6 +155,9 @@ class TradePlanner:
             print(f"Invested Capital: ${invested_capital:.2f}")
             print(f"Available Cash  : ${report['AvailableCash']:.2f}")
             print(f"Max Risk        : ${report['MaxLoss']:.2f}")
+            print(f"Portfolio Risk  : ${current_portfolio_risk:.2f}")
+            print(f"Portfolio Limit : ${max_portfolio_risk:.2f}")
+            print(f"Risk Budget Left: ${report['RemainingPortfolioRisk']:.2f}")
             print(f"Entry           : {report['Entry']}")
             print(f"Stop            : {report['Stop']}")
             print(f"Target          : {report['Target']}")
