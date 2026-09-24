@@ -37,7 +37,7 @@ with left:
     )
 
     if summary["positions"]:
-        st.dataframe(summary["positions"], use_container_width=True)
+        st.dataframe(summary["positions"], width="stretch")
     else:
         st.write("No open positions.")
 
