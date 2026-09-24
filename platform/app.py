@@ -48,7 +48,7 @@ with right:
         <iframe
             width="100%"
             height="420"
-            src="https://www.youtube.com/embed/live_stream?channel=UCn75vF3UxwWeWPAY4-5Z6HQ"
+            src="https://www.youtube.com/embed/kowCxUW-SO0"
             title="TraderTV Live"
             frameborder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
@@ -57,6 +57,8 @@ with right:
         """,
         unsafe_allow_html=True,
     )
+
+    st.caption("TraderTV Live broadcast player")
 
     st.subheader("Live Transcript")
     st.info("Live transcription and ticker detection will be added after the base UI is validated.")
