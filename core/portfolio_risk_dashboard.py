@@ -1,3 +1,4 @@
+from core.risk_alert_engine import RiskAlertEngine
 from config import (
     ACCOUNT_CAPITAL,
     MAX_OPEN_POSITIONS,
@@ -10,6 +11,7 @@ class PortfolioRiskDashboard:
 
     def __init__(self, database):
         self.db = database
+        self.alert_engine = RiskAlertEngine()
 
     def get_summary(self):
         invested = self.db.get_open_invested_capital()
@@ -159,6 +161,22 @@ class PortfolioRiskDashboard:
             f"${summary['max_position_exposure']:.2f} "
             f"({summary['max_position_exposure_percent']:.1f}%)"
         )
+
+        print("-" * 60)
+
+        alert_state = self.alert_engine.evaluate(summary)
+
+        print("RISK ALERTS")
+        print("-" * 60)
+
+        if alert_state["alert_count"] == 0:
+            print("No active risk alerts.")
+        else:
+            for alert in alert_state["alerts"]:
+                print(
+                    f"WARNING [{alert['code']}] "
+                    f"{alert['message']}"
+                )
 
         print("-" * 60)
 
