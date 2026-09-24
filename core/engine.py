@@ -22,6 +22,7 @@ from strategy.risk_manager import RiskManager
 from strategy.portfolio_manager import PortfolioManager
 
 from core.portfolio_monitor import PortfolioMonitor
+from core.portfolio_risk_dashboard import PortfolioRiskDashboard
 
 
 
@@ -47,6 +48,7 @@ class TradingEngine:
 
         self.portfolio = PortfolioManager()
         self.monitor = PortfolioMonitor()
+        self.risk_dashboard = PortfolioRiskDashboard(self.portfolio.db)
 
         self.trade_planner = TradePlanner(self.portfolio)
 
@@ -165,6 +167,12 @@ class TradingEngine:
         if len(self.results) > 0:
            print(self.results[0])
         self.trade_planner.process_trade_plans(self.results)
+
+        # ----------------------------------------
+        # Portfolio Risk Dashboard
+        # ----------------------------------------
+
+        self.risk_dashboard.display()
 
         # ----------------------------------------
         # Performance
