@@ -62,7 +62,7 @@ with right:
 
     st.subheader("Live Transcript")
 
-    from platform.ticker_detector import TickerDetector
+    from ticker_detector import TickerDetector
 
     demo_text = st.text_area(
         "Transcript test",
