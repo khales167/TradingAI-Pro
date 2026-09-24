@@ -106,3 +106,83 @@ class PortfolioRiskDashboard:
             ),
             "positions": positions,
         }
+
+
+    def display(self):
+        summary = self.get_summary()
+
+        print("\n" + "=" * 60)
+        print("              PORTFOLIO RISK DASHBOARD")
+        print("=" * 60)
+
+        print(
+            f"Account Capital        : "
+            f"${summary['account_capital']:.2f}"
+        )
+        print(
+            f"Invested Capital       : "
+            f"${summary['invested_capital']:.2f}"
+        )
+        print(
+            f"Available Cash         : "
+            f"${summary['available_cash']:.2f}"
+        )
+
+        print("-" * 60)
+
+        print(
+            f"Current Portfolio Risk : "
+            f"${summary['current_portfolio_risk']:.2f}"
+        )
+        print(
+            f"Max Portfolio Risk     : "
+            f"${summary['max_portfolio_risk']:.2f}"
+        )
+        print(
+            f"Risk Budget Left       : "
+            f"${summary['risk_budget_left']:.2f}"
+        )
+
+        print("-" * 60)
+
+        print(
+            f"Open Positions         : "
+            f"{summary['open_positions']} / "
+            f"{summary['max_open_positions']}"
+        )
+        print(
+            f"Open Slots             : "
+            f"{summary['open_slots']}"
+        )
+        print(
+            f"Max Position Exposure  : "
+            f"${summary['max_position_exposure']:.2f} "
+            f"({summary['max_position_exposure_percent']:.1f}%)"
+        )
+
+        print("-" * 60)
+
+        if not summary["positions"]:
+            print("No open positions.")
+        else:
+            print(
+                f"{'SYMBOL':<10}"
+                f"{'QTY':>8}"
+                f"{'ENTRY':>12}"
+                f"{'VALUE':>14}"
+                f"{'EXPOSURE':>12}"
+            )
+            print("-" * 60)
+
+            for position in summary["positions"]:
+                print(
+                    f"{position['symbol']:<10}"
+                    f"{position['quantity']:>8}"
+                    f"{position['entry_price']:>12.2f}"
+                    f"{position['position_value']:>14.2f}"
+                    f"{position['exposure_percent']:>11.2f}%"
+                )
+
+        print("=" * 60)
+
+        return summary
