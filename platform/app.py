@@ -61,4 +61,21 @@ with right:
     st.caption("TraderTV Live broadcast player")
 
     st.subheader("Live Transcript")
-    st.info("Live transcription and ticker detection will be added after the base UI is validated.")
+
+    from platform.ticker_detector import TickerDetector
+
+    demo_text = st.text_area(
+        "Transcript test",
+        value="Nvidia and Tesla are active this morning while Super Micro is under pressure.",
+        height=110,
+    )
+
+    detector = TickerDetector(
+        ["NVDA", "AMD", "AAPL", "TSLA", "PLTR", "META", "MSFT", "AMZN", "NFLX", "AVGO", "SMCI"]
+    )
+    detected = detector.detect(demo_text)
+
+    if detected:
+        st.success("Detected tickers: " + ", ".join(detected))
+    else:
+        st.info("No tracked ticker detected in transcript text.")
