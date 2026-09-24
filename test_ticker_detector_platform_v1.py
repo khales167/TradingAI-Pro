@@ -1,1 +1,24 @@
-from platform.ticker_detector import TickerDetector\n\n\ndef main():\n    detector = TickerDetector(["NVDA", "AMD", "AAPL", "TSLA", "SMCI"])\n    cases = {\n        "Nvidia is moving higher on heavy volume": ["NVDA"],\n        "Tesla and Apple are active this morning": ["AAPL", "TSLA"],\n        "Watching $AMD after the opening bell": ["AMD"],\n        "Super Micro Computer is under pressure": ["SMCI"],\n        "No stock mentioned here": [],\n    }\n\n    for text, expected in cases.items():\n        actual = detector.detect(text)\n        assert actual == expected, f"{text}: expected {expected}, got {actual}"\n        print(f"PASS | {text} -> {actual}")\n\n    print("\nPASS: TraderTV ticker detection engine.")\n\n\nif __name__ == "__main__":\n    main()\n
+from platform.ticker_detector import TickerDetector
+
+
+def main():
+    detector = TickerDetector(["NVDA", "AMD", "AAPL", "TSLA", "SMCI"])
+
+    cases = {
+        "Nvidia is moving higher on heavy volume": ["NVDA"],
+        "Tesla and Apple are active this morning": ["AAPL", "TSLA"],
+        "Watching $AMD after the opening bell": ["AMD"],
+        "Super Micro Computer is under pressure": ["SMCI"],
+        "No stock mentioned here": [],
+    }
+
+    for text, expected in cases.items():
+        actual = detector.detect(text)
+        assert actual == expected, f"{text}: expected {expected}, got {actual}"
+        print(f"PASS | {text} -> {actual}")
+
+    print("\nPASS: TraderTV ticker detection engine.")
+
+
+if __name__ == "__main__":
+    main()
