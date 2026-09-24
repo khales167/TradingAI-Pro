@@ -1,3 +1,11 @@
+from config import (
+    PORTFOLIO_RISK_WARNING_PERCENT,
+    POSITION_EXPOSURE_WARNING_PERCENT,
+    LOW_CASH_WARNING_AMOUNT,
+    LOW_SLOT_WARNING_COUNT,
+)
+
+
 class RiskAlertEngine:
 
     def evaluate(self, summary):
@@ -12,7 +20,7 @@ class RiskAlertEngine:
             else 0.0
         )
 
-        if risk_usage_percent >= 80:
+        if risk_usage_percent >= PORTFOLIO_RISK_WARNING_PERCENT:
             alerts.append({
                 "level": "WARNING",
                 "code": "PORTFOLIO_RISK_HIGH",
@@ -22,7 +30,7 @@ class RiskAlertEngine:
                 ),
             })
 
-        if summary["open_slots"] <= 1:
+        if summary["open_slots"] <= LOW_SLOT_WARNING_COUNT:
             alerts.append({
                 "level": "WARNING",
                 "code": "LOW_OPEN_SLOTS",
@@ -32,7 +40,7 @@ class RiskAlertEngine:
                 ),
             })
 
-        if summary["available_cash"] < 100:
+        if summary["available_cash"] < LOW_CASH_WARNING_AMOUNT:
             alerts.append({
                 "level": "WARNING",
                 "code": "LOW_AVAILABLE_CASH",
@@ -43,7 +51,7 @@ class RiskAlertEngine:
             })
 
         for position in summary["positions"]:
-            if position["exposure_percent"] >= 35:
+            if position["exposure_percent"] >= POSITION_EXPOSURE_WARNING_PERCENT:
                 alerts.append({
                     "level": "WARNING",
                     "code": "POSITION_EXPOSURE_HIGH",
