@@ -1,5 +1,5 @@
-from platform.live_transcription import LiveTranscriptionEngine, MockTranscriber
-from platform.ticker_detector import TickerDetector
+from trading_platform.live_transcription import LiveTranscriptionEngine, MockTranscriber
+from trading_platform.ticker_detector import TickerDetector
 
 
 def main():

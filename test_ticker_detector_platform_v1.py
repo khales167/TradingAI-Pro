@@ -1,4 +1,4 @@
-from platform.ticker_detector import TickerDetector
+from trading_platform.ticker_detector import TickerDetector
 
 
 def main():
