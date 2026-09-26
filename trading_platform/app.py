@@ -39,7 +39,7 @@ def get_transcription_engine() -> LiveTranscriptionEngine:
 
 def analyze_live_chunk() -> tuple[str, list[str]]:
     capture = LiveAudioCapture(
-        device=12,
+        device=None,
         samplerate=48000,
         channels=2,
         chunk_seconds=10,
