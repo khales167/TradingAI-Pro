@@ -19,3 +19,7 @@ reports/*.csv
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local TraderTV test/backup files
+tradertv_test.wav
+trading_platform/app_before_live_audio.py
