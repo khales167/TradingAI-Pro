@@ -9,6 +9,7 @@ from core.database import DatabaseManager
 from ticker_detector import TickerDetector
 from live_transcription import LiveTranscriptionEngine, WhisperCppBackend
 from live_audio_capture import LiveAudioCapture
+from live_worker import TraderTVLiveWorker
 
 
 WHISPER_EXE = Path(
@@ -139,29 +140,104 @@ with right:
     if "live_tickers" not in st.session_state:
         st.session_state.live_tickers = []
 
+    if "live_error" not in st.session_state:
+        st.session_state.live_error = ""
+
+    @st.cache_resource
+    def get_live_worker() -> TraderTVLiveWorker:
+        return TraderTVLiveWorker(
+            whisper_exe=str(WHISPER_EXE),
+            whisper_model=str(WHISPER_MODEL),
+            symbols=WATCHLIST,
+            chunk_seconds=10,
+        )
+
+    live_worker = get_live_worker()
+
     if not WHISPER_EXE.is_file():
         st.error(f"whisper-cli.exe not found: {WHISPER_EXE}")
     elif not WHISPER_MODEL.is_file():
         st.error(f"Whisper model not found: {WHISPER_MODEL}")
     else:
-        if st.button(
-            "Capture & Analyze Live 10s",
-            type="primary",
-            width="stretch",
-        ):
-            try:
-                with st.spinner(
-                    "Listening to TraderTV for 10 seconds..."
-                ):
-                    transcript, detected = analyze_live_chunk()
+        start_col, stop_col = st.columns(2)
 
-                st.session_state.live_transcript = transcript
-                st.session_state.live_tickers = detected
+        with start_col:
+            if st.button(
+                "Start Live",
+                type="primary",
+                width="stretch",
+                disabled=live_worker.running,
+            ):
+                st.session_state.live_error = ""
+                live_worker.start()
+                st.rerun()
 
-            except Exception as exc:
-                st.error(f"Live capture failed: {exc}")
+        with stop_col:
+            if st.button(
+                "Stop Live",
+                width="stretch",
+                disabled=not live_worker.running,
+            ):
+                live_worker.stop()
+                st.rerun()
 
-    if st.session_state.live_transcript:
+        if live_worker.running:
+            st.success(
+                "LIVE: listening to TraderTV in 10-second chunks."
+            )
+        else:
+            st.caption("Live listener is stopped.")
+
+        @st.fragment(run_every=1)
+        def render_live_updates() -> None:
+            update = live_worker.latest_update()
+
+            if update is not None:
+                if update.error:
+                    st.session_state.live_error = update.error
+                else:
+                    st.session_state.live_error = ""
+                    st.session_state.live_transcript = (
+                        update.transcript
+                    )
+                    st.session_state.live_tickers = list(
+                        update.tickers
+                    )
+
+            if st.session_state.live_error:
+                st.error(
+                    "Live capture failed: "
+                    + st.session_state.live_error
+                )
+
+            if st.session_state.live_transcript:
+                st.text_area(
+                    "Latest live transcript",
+                    value=st.session_state.live_transcript,
+                    height=140,
+                    disabled=True,
+                    key="continuous_live_transcript",
+                )
+
+                if st.session_state.live_tickers:
+                    st.success(
+                        "Live detected tickers: "
+                        + ", ".join(
+                            st.session_state.live_tickers
+                        )
+                    )
+                else:
+                    st.info(
+                        "No tracked ticker detected "
+                        "in the latest live chunk."
+                    )
+
+        render_live_updates()
+
+    if (
+        not WHISPER_EXE.is_file()
+        or not WHISPER_MODEL.is_file()
+    ) and st.session_state.live_transcript:
         st.text_area(
             "Latest live transcript",
             value=st.session_state.live_transcript,
