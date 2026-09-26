@@ -12,17 +12,53 @@ class LiveAudioCapture:
 
     def __init__(
         self,
-        device: int = 12,
+        device: int | None = None,
         samplerate: int = 48000,
         channels: int = 2,
         dtype: str = "int16",
         chunk_seconds: int = 10,
     ):
-        self.device = device
+        self.device = (
+            device
+            if device is not None
+            else self.find_stereo_mix_directsound()
+        )
         self.samplerate = samplerate
         self.channels = channels
         self.dtype = dtype
         self.chunk_seconds = chunk_seconds
+
+    @staticmethod
+    def find_stereo_mix_directsound() -> int:
+        """Return the DirectSound Stereo Mix input device index."""
+
+        devices = sd.query_devices()
+        hostapis = sd.query_hostapis()
+
+        for index, device in enumerate(devices):
+            name = str(device["name"]).lower()
+            hostapi_index = int(device["hostapi"])
+            hostapi_name = str(
+                hostapis[hostapi_index]["name"]
+            ).lower()
+
+            is_stereo_mix = (
+                "mixage stéréo" in name
+                or "mixage stereo" in name
+                or "stereo mix" in name
+            )
+
+            if (
+                is_stereo_mix
+                and "directsound" in hostapi_name
+                and int(device["max_input_channels"]) >= 2
+            ):
+                return index
+
+        raise RuntimeError(
+            "Stereo Mix DirectSound input was not found. "
+            "Enable Stereo Mix in Windows Sound settings."
+        )
 
     def record_chunk(self) -> Path:
         """Record one audio chunk and return its temporary WAV path."""
