@@ -8,6 +8,7 @@ from core.database import DatabaseManager
 
 from ticker_detector import TickerDetector
 from live_transcription import LiveTranscriptionEngine, WhisperCppBackend
+from live_audio_capture import LiveAudioCapture
 
 
 WHISPER_EXE = Path(
@@ -17,6 +18,45 @@ WHISPER_EXE = Path(
 WHISPER_MODEL = Path(
     r"C:\Users\DELL\Desktop\whisper.cpp\ggml-tiny.en.bin"
 )
+
+WATCHLIST = [
+    "NVDA", "AMD", "AAPL", "TSLA", "PLTR", "META",
+    "MSFT", "AMZN", "NFLX", "AVGO", "SMCI",
+]
+
+
+def get_detector() -> TickerDetector:
+    return TickerDetector(WATCHLIST)
+
+
+def get_transcription_engine() -> LiveTranscriptionEngine:
+    backend = WhisperCppBackend(
+        str(WHISPER_EXE),
+        str(WHISPER_MODEL),
+    )
+    return LiveTranscriptionEngine(backend)
+
+
+def analyze_live_chunk() -> tuple[str, list[str]]:
+    capture = LiveAudioCapture(
+        device=12,
+        samplerate=48000,
+        channels=2,
+        chunk_seconds=10,
+    )
+    audio_path = None
+
+    try:
+        audio_path = capture.record_chunk()
+        result = get_transcription_engine().transcribe_file(
+            str(audio_path)
+        )
+        transcript = result.text
+        detected = get_detector().detect(transcript)
+        return transcript, detected
+    finally:
+        if audio_path is not None:
+            capture.cleanup(audio_path)
 
 
 st.set_page_config(
@@ -46,18 +86,15 @@ with left:
         "Capital",
         f"${summary['account_capital']:.2f}",
     )
-
     c2.metric(
         "Available Cash",
         f"${summary['available_cash']:.2f}",
     )
-
     c3.metric(
         "Portfolio Risk",
         f"${summary['current_portfolio_risk']:.2f}"
         f" / ${summary['max_portfolio_risk']:.2f}",
     )
-
     c4.metric(
         "Open Positions",
         f"{summary['open_positions']}"
@@ -94,60 +131,73 @@ with right:
     )
 
     st.caption("TraderTV Live broadcast player")
-
     st.subheader("Live Transcript")
 
-    detector = TickerDetector(
-        [
-            "NVDA",
-            "AMD",
-            "AAPL",
-            "TSLA",
-            "PLTR",
-            "META",
-            "MSFT",
-            "AMZN",
-            "NFLX",
-            "AVGO",
-            "SMCI",
-        ]
-    )
+    if "live_transcript" not in st.session_state:
+        st.session_state.live_transcript = ""
 
-    audio_file = st.file_uploader(
-        "Upload audio for Whisper transcription",
-        type=["wav", "mp3", "ogg", "flac"],
-    )
+    if "live_tickers" not in st.session_state:
+        st.session_state.live_tickers = []
 
-    if audio_file is not None:
+    if not WHISPER_EXE.is_file():
+        st.error(f"whisper-cli.exe not found: {WHISPER_EXE}")
+    elif not WHISPER_MODEL.is_file():
+        st.error(f"Whisper model not found: {WHISPER_MODEL}")
+    else:
+        if st.button(
+            "Capture & Analyze Live 10s",
+            type="primary",
+            width="stretch",
+        ):
+            try:
+                with st.spinner(
+                    "Listening to TraderTV for 10 seconds..."
+                ):
+                    transcript, detected = analyze_live_chunk()
 
-        if not WHISPER_EXE.is_file():
-            st.error(
-                f"whisper-cli.exe not found: {WHISPER_EXE}"
+                st.session_state.live_transcript = transcript
+                st.session_state.live_tickers = detected
+
+            except Exception as exc:
+                st.error(f"Live capture failed: {exc}")
+
+    if st.session_state.live_transcript:
+        st.text_area(
+            "Latest live transcript",
+            value=st.session_state.live_transcript,
+            height=140,
+            disabled=True,
+        )
+
+        if st.session_state.live_tickers:
+            st.success(
+                "Live detected tickers: "
+                + ", ".join(st.session_state.live_tickers)
             )
-
-        elif not WHISPER_MODEL.is_file():
-            st.error(
-                f"Whisper model not found: {WHISPER_MODEL}"
-            )
-
         else:
+            st.info(
+                "No tracked ticker detected "
+                "in the latest live chunk."
+            )
+
+    with st.expander("Audio file test / manual transcription"):
+        audio_file = st.file_uploader(
+            "Upload audio for Whisper transcription",
+            type=["wav", "mp3", "ogg", "flac"],
+        )
+
+        if audio_file is not None:
             suffix = Path(audio_file.name).suffix
 
             with tempfile.NamedTemporaryFile(
                 delete=False,
                 suffix=suffix,
             ) as temp_audio:
-
                 temp_audio.write(audio_file.getbuffer())
                 temp_audio_path = temp_audio.name
 
             try:
-                backend = WhisperCppBackend(
-                    str(WHISPER_EXE),
-                    str(WHISPER_MODEL),
-                )
-
-                engine = LiveTranscriptionEngine(backend)
+                engine = get_transcription_engine()
 
                 with st.spinner(
                     "Transcribing audio with whisper.cpp..."
@@ -164,7 +214,7 @@ with right:
                     height=140,
                 )
 
-                detected = detector.detect(transcript)
+                detected = get_detector().detect(transcript)
 
                 if detected:
                     st.success(
@@ -178,9 +228,7 @@ with right:
                     )
 
             except Exception as exc:
-                st.error(
-                    f"Transcription failed: {exc}"
-                )
+                st.error(f"Transcription failed: {exc}")
 
             finally:
                 try:
