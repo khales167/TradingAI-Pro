@@ -10,6 +10,7 @@ from ticker_detector import TickerDetector
 from live_transcription import LiveTranscriptionEngine, WhisperCppBackend
 from live_audio_capture import LiveAudioCapture
 from live_worker import TraderTVLiveWorker
+from live_scanner import LiveScannerService
 
 
 WHISPER_EXE = Path(
@@ -74,7 +75,21 @@ left, right = st.columns([1.15, 1])
 
 with left:
     st.subheader("Market Scanner")
-    st.info("Scanner integration is the next step.")
+
+    @st.cache_resource
+    def get_live_scanner() -> LiveScannerService:
+        return LiveScannerService()
+
+    if "scanner_results" not in st.session_state:
+        st.session_state.scanner_results = []
+
+    if st.session_state.scanner_results:
+        st.dataframe(
+            st.session_state.scanner_results,
+            width="stretch",
+        )
+    else:
+        st.info("Waiting for a TraderTV ticker mention...")
 
     st.subheader("Portfolio Risk")
 
@@ -203,6 +218,18 @@ with right:
                     st.session_state.live_tickers = list(
                         update.tickers
                     )
+
+                    if update.tickers:
+                        try:
+                            st.session_state.scanner_results = (
+                                get_live_scanner().scan_symbols(
+                                    list(update.tickers)
+                                )
+                            )
+                        except Exception as exc:
+                            st.session_state.live_error = (
+                                "Scanner failed: " + str(exc)
+                            )
 
             if st.session_state.live_error:
                 st.error(
