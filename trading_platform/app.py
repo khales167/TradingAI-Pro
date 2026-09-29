@@ -141,7 +141,18 @@ with left:
             s1.metric("Shares", sizing["Shares"])
             s2.metric("Position Value", f"${sizing['PositionValue']:.2f}")
             s3.metric("Position Risk", f"${sizing['PositionRisk']:.2f}")
-            s4.metric("Status", "ELIGIBLE" if sizing["Eligible"] else "NOT ELIGIBLE")
+            sizing_status = (
+                "ELIGIBLE" if sizing["Eligible"] else "BLOCKED"
+            )
+            s4.metric("Risk Gate", sizing_status)
+
+            execution_allowed = (
+                decision == "BUY" and sizing["Eligible"]
+            )
+            if execution_allowed:
+                st.success("Execution Gate: READY")
+            else:
+                st.error("Execution Gate: BLOCKED")
 
             if sizing["SizingReasons"]:
                 st.warning(sizing["SizingReasons"])
