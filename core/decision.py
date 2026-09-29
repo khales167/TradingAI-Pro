@@ -7,6 +7,7 @@ class DecisionEngine:
         adx = analysis["adx"]
 
         market_state = market.get("Overall", "Neutral")
+        decision_reasons = []
 
         # =========================
         # DECISION ENGINE
@@ -52,6 +53,25 @@ class DecisionEngine:
             else:
                 action = "SKIP"
 
+        # Explain the final action separately from score contributors.
+        if market_state == "Bearish":
+            decision_reasons.append("Market regime is Bearish")
+
+        if score < 80:
+            decision_reasons.append(
+                f"Score {score} is below BUY threshold 80"
+            )
+
+        if adx < 20:
+            decision_reasons.append(
+                f"ADX {adx} is below BUY threshold 20"
+            )
+
+        if action == "BUY":
+            decision_reasons.append(
+                "Score and ADX meet BUY conditions"
+            )
+
         # =========================
         # QUALITY RATING
         # =========================
@@ -82,5 +102,6 @@ class DecisionEngine:
             "action": action,
             "quality": quality,
             "reasons": reasons,
+            "decision_reasons": decision_reasons,
             "market": market_state
         }
