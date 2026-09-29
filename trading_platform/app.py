@@ -85,13 +85,57 @@ with left:
 
     @st.fragment(run_every=1)
     def render_scanner_results() -> None:
-        if st.session_state.scanner_results:
-            st.dataframe(
-                st.session_state.scanner_results,
-                width="stretch",
-            )
-        else:
+        if not st.session_state.scanner_results:
             st.info("Waiting for a TraderTV ticker mention...")
+            return
+
+        for result in st.session_state.scanner_results:
+            symbol = result["Symbol"]
+            decision = result["Decision"]
+
+            st.markdown(f"### {symbol} — {decision}")
+
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Price", f"${result[\'Price\']:.2f}")
+            c2.metric("Score", f"{result[\'Score\']}/100")
+            c3.metric("Confidence", f"{result[\'Confidence\']}%")
+            c4.metric("Market", result["Market"])
+
+            st.caption(
+                f"Quality: {result[\'Quality\']} | "
+                f"TraderTV detected: {\'Yes\' if result[\'TraderTV\'] else \'No\'}"
+            )
+
+            st.markdown("**Technical**")
+            t1, t2, t3, t4 = st.columns(4)
+            t1.metric("MA19", result["MA19"])
+            t2.metric("MA38", result["MA38"])
+            t3.metric("MA209", result["MA209"])
+            t4.metric("ADX", result["ADX"])
+
+            t5, t6, t7, t8 = st.columns(4)
+            t5.metric("DI+", result["DI+"])
+            t6.metric("DI-", result["DI-"])
+            t7.metric("RVOL", result["RVOL"])
+            t8.metric("Volume", f"{result[\'Volume\']:,}")
+
+            st.markdown("**Trade Plan**")
+            p1, p2, p3, p4 = st.columns(4)
+            p1.metric("Entry", f"${result[\'Entry\']:.2f}")
+            p2.metric("Stop", f"${result[\'Stop\']:.2f}")
+            p3.metric("Target", f"${result[\'Target\']:.2f}")
+            p4.metric("R:R", result["RR"])
+
+            st.markdown("**Why**")
+            if result["Reasons"]:
+                st.write(result["Reasons"])
+            else:
+                st.caption("No scoring reasons returned.")
+
+            with st.expander("Technical Details"):
+                st.dataframe([result], width="stretch")
+
+            st.divider()
 
     render_scanner_results()
 
