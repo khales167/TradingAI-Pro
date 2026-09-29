@@ -5,6 +5,7 @@ import streamlit as st
 
 from core.portfolio_risk_dashboard import PortfolioRiskDashboard
 from core.database import DatabaseManager
+from core.position_sizer import PositionSizer
 
 from ticker_detector import TickerDetector
 from live_transcription import LiveTranscriptionEngine, WhisperCppBackend
@@ -83,6 +84,9 @@ with left:
     if "scanner_results" not in st.session_state:
         st.session_state.scanner_results = []
 
+    risk_dashboard = PortfolioRiskDashboard(DatabaseManager())
+    position_sizer = PositionSizer()
+
     @st.fragment(run_every=1)
     def render_scanner_results() -> None:
         if not st.session_state.scanner_results:
@@ -125,6 +129,22 @@ with left:
             p2.metric("Stop", f"${result['Stop']:.2f}")
             p3.metric("Target", f"${result['Target']:.2f}")
             p4.metric("R:R", result["RR"])
+
+            st.markdown("**Position Sizing**")
+            sizing = position_sizer.calculate(
+                result["Entry"],
+                result["Stop"],
+                risk_dashboard.get_summary(),
+            )
+
+            s1, s2, s3, s4 = st.columns(4)
+            s1.metric("Shares", sizing["Shares"])
+            s2.metric("Position Value", f"${sizing['PositionValue']:.2f}")
+            s3.metric("Position Risk", f"${sizing['PositionRisk']:.2f}")
+            s4.metric("Status", "ELIGIBLE" if sizing["Eligible"] else "NOT ELIGIBLE")
+
+            if sizing["SizingReasons"]:
+                st.warning(sizing["SizingReasons"])
 
             st.markdown(f"**Why {decision}?**")
             if result.get("DecisionReasons"):
