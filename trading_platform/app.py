@@ -96,14 +96,14 @@ with left:
             st.markdown(f"### {symbol} — {decision}")
 
             c1, c2, c3, c4 = st.columns(4)
-            c1.metric("Price", f"${result[\'Price\']:.2f}")
-            c2.metric("Score", f"{result[\'Score\']}/100")
-            c3.metric("Confidence", f"{result[\'Confidence\']}%")
+            c1.metric("Price", f"${result['Price']:.2f}")
+            c2.metric("Score", f"{result['Score']}/100")
+            c3.metric("Confidence", f"{result['Confidence']}%")
             c4.metric("Market", result["Market"])
 
             st.caption(
-                f"Quality: {result[\'Quality\']} | "
-                f"TraderTV detected: {\'Yes\' if result[\'TraderTV\'] else \'No\'}"
+                f"Quality: {result['Quality']} | "
+                f"TraderTV detected: {'Yes' if result['TraderTV'] else 'No'}"
             )
 
             st.markdown("**Technical**")
@@ -117,13 +117,13 @@ with left:
             t5.metric("DI+", result["DI+"])
             t6.metric("DI-", result["DI-"])
             t7.metric("RVOL", result["RVOL"])
-            t8.metric("Volume", f"{result[\'Volume\']:,}")
+            t8.metric("Volume", f"{result['Volume']:,}")
 
             st.markdown("**Trade Plan**")
             p1, p2, p3, p4 = st.columns(4)
-            p1.metric("Entry", f"${result[\'Entry\']:.2f}")
-            p2.metric("Stop", f"${result[\'Stop\']:.2f}")
-            p3.metric("Target", f"${result[\'Target\']:.2f}")
+            p1.metric("Entry", f"${result['Entry']:.2f}")
+            p2.metric("Stop", f"${result['Stop']:.2f}")
+            p3.metric("Target", f"${result['Target']:.2f}")
             p4.metric("R:R", result["RR"])
 
             st.markdown("**Why**")
