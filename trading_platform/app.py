@@ -7,6 +7,7 @@ from core.portfolio_risk_dashboard import PortfolioRiskDashboard
 from core.database import DatabaseManager
 from core.position_sizer import PositionSizer
 from core.order_preview import OrderPreviewBuilder
+from core.paper_trade_simulator import PaperTradeSimulator
 
 from ticker_detector import TickerDetector
 from live_transcription import LiveTranscriptionEngine, WhisperCppBackend
@@ -88,6 +89,7 @@ with left:
     risk_dashboard = PortfolioRiskDashboard(DatabaseManager())
     position_sizer = PositionSizer()
     order_preview_builder = OrderPreviewBuilder()
+    paper_simulator = PaperTradeSimulator(DatabaseManager())
 
     @st.fragment(run_every=1)
     def render_scanner_results() -> None:
@@ -169,6 +171,20 @@ with left:
 
             if preview["Ready"]:
                 st.success("Order Preview: READY")
+                if st.button(
+                    f"Open Paper Trade — {symbol}",
+                    key=f"paper_trade_{symbol}",
+                    type="primary",
+                ):
+                    paper_result = paper_simulator.execute(preview)
+                    if paper_result["Executed"]:
+                        st.success(
+                            f"Paper position opened: {symbol} "
+                            f"{paper_result['Shares']} share(s) "
+                            f"@ ${paper_result['Entry']:.2f}"
+                        )
+                    else:
+                        st.warning(paper_result["Reason"])
             else:
                 st.info("Order Preview: BLOCKED — preview only")
 
