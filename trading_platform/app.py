@@ -73,6 +73,18 @@ st.set_page_config(
 st.title("TradingAI-Pro Platform")
 st.caption("Scanner + Portfolio Risk + TraderTV Live")
 
+paper_test_mode = st.sidebar.toggle(
+    "Paper/Test Mode",
+    value=False,
+    help="Use the isolated test database instead of the live portfolio database.",
+)
+db_path = "database/test_trading_ai.db" if paper_test_mode else "database/trading_ai.db"
+st.sidebar.caption(f"Database: {db_path}")
+if paper_test_mode:
+    st.sidebar.warning("TEST MODE — isolated paper database")
+else:
+    st.sidebar.info("LIVE PORTFOLIO DATABASE — paper test button stays guarded")
+
 left, right = st.columns([1.15, 1])
 
 
@@ -86,10 +98,10 @@ with left:
     if "scanner_results" not in st.session_state:
         st.session_state.scanner_results = []
 
-    risk_dashboard = PortfolioRiskDashboard(DatabaseManager())
+    risk_dashboard = PortfolioRiskDashboard(DatabaseManager(db_path))
     position_sizer = PositionSizer()
     order_preview_builder = OrderPreviewBuilder()
-    paper_simulator = PaperTradeSimulator(DatabaseManager())
+    paper_simulator = PaperTradeSimulator(DatabaseManager(db_path))
 
     @st.fragment(run_every=1)
     def render_scanner_results() -> None:
@@ -209,7 +221,7 @@ with left:
 
     st.subheader("Portfolio Risk")
 
-    dashboard = PortfolioRiskDashboard(DatabaseManager())
+    dashboard = PortfolioRiskDashboard(DatabaseManager(db_path))
     summary = dashboard.get_summary()
 
     c1, c2, c3, c4 = st.columns(4)
