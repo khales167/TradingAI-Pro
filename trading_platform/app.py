@@ -126,7 +126,13 @@ with left:
             p3.metric("Target", f"${result['Target']:.2f}")
             p4.metric("R:R", result["RR"])
 
-            st.markdown("**Why**")
+            st.markdown(f"**Why {decision}?**")
+            if result.get("DecisionReasons"):
+                st.warning(result["DecisionReasons"])
+            else:
+                st.caption("No decision explanation returned.")
+
+            st.markdown("**Score Contributors**")
             if result["Reasons"]:
                 st.write(result["Reasons"])
             else:
