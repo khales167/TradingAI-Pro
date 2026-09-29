@@ -13,7 +13,7 @@ class OrderPreviewBuilder:
 
         return {
             "Symbol": signal["Symbol"],
-            "Side": "BUY",
+            "Side": "BUY" if ready else "NONE",
             "Shares": int(sizing.get("Shares", 0)),
             "Entry": round(float(signal["Entry"]), 2),
             "Stop": round(float(signal["Stop"]), 2),
@@ -22,5 +22,5 @@ class OrderPreviewBuilder:
             "TotalRisk": round(float(sizing.get("PositionRisk", 0)), 2),
             "RR": signal["RR"],
             "Ready": ready,
-            "Mode": "PREVIEW_ONLY",
+            "Mode": "PREVIEW",
         }
