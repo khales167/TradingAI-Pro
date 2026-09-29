@@ -6,6 +6,7 @@ import streamlit as st
 from core.portfolio_risk_dashboard import PortfolioRiskDashboard
 from core.database import DatabaseManager
 from core.position_sizer import PositionSizer
+from core.order_preview import OrderPreviewBuilder
 
 from ticker_detector import TickerDetector
 from live_transcription import LiveTranscriptionEngine, WhisperCppBackend
@@ -86,6 +87,7 @@ with left:
 
     risk_dashboard = PortfolioRiskDashboard(DatabaseManager())
     position_sizer = PositionSizer()
+    order_preview_builder = OrderPreviewBuilder()
 
     @st.fragment(run_every=1)
     def render_scanner_results() -> None:
@@ -156,6 +158,19 @@ with left:
 
             if sizing["SizingReasons"]:
                 st.warning(sizing["SizingReasons"])
+
+            preview = order_preview_builder.build(result, sizing)
+            st.markdown("**Order Preview**")
+            o1, o2, o3, o4 = st.columns(4)
+            o1.metric("Side", preview["Side"])
+            o2.metric("Shares", preview["Shares"])
+            o3.metric("Total Risk", f"${preview['TotalRisk']:.2f}")
+            o4.metric("Mode", preview["Mode"])
+
+            if preview["Ready"]:
+                st.success("Order Preview: READY")
+            else:
+                st.info("Order Preview: BLOCKED — preview only")
 
             st.markdown(f"**Why {decision}?**")
             if result.get("DecisionReasons"):
