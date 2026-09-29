@@ -22,9 +22,10 @@ class DatabaseManager:
 
         return exists
 
-    def __init__(self):
+    def __init__(self, db_path=None):
         Path("database").mkdir(exist_ok=True)
-        self.db_path = "database/trading_ai.db"
+        self.db_path = db_path or "database/trading_ai.db"
+        Path(self.db_path).parent.mkdir(parents=True, exist_ok=True)
         self.create_tables()
 
     def connect(self):
