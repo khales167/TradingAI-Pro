@@ -91,22 +91,7 @@ class Analyzer:
 
         headlines = self.news.get_news(symbol)
 
-        print("\n==============================")
-        print(symbol)
-        print("==============================")
-
-        for item in headlines:
-
-            print(item["title"])
-
         news_result = self.news_score.calculate(headlines)
-
-        print("=" * 50)
-        print(symbol)
-        print("News Score :", news_result["score"])
-        print("Positive   :", news_result["positive"])
-        print("Negative   :", news_result["negative"])
-        print("=" * 50)
 
         score += news_result["score"]
 
