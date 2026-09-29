@@ -14,9 +14,11 @@ class DataManager:
         print(f"Downloading {symbol}")
 
         try:
+            # Use 2 years of daily history so long moving averages
+            # (especially MA209) have a reliable data buffer.
             df = yf.download(
                 tickers=symbol,
-                period="1y",
+                period="2y",
                 interval="1d",
                 auto_adjust=False,
                 progress=False,
@@ -31,6 +33,14 @@ class DataManager:
 
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
+
+            # MA209 needs at least 209 daily observations.
+            if len(df) < 209:
+                print(
+                    f"❌ Not enough history for {symbol}: "
+                    f"{len(df)} rows (209 required)"
+                )
+                return None
 
             return df
 
