@@ -74,6 +74,9 @@ class LiveScannerService:
             "RR": levels["RR"],
             "NewsScore": analysis["news_score"],
             "Reasons": ", ".join(decision["reasons"]),
+            "DecisionReasons": "; ".join(
+                decision["decision_reasons"]
+            ),
             "TraderTV": True,
         }
 
