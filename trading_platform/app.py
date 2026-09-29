@@ -83,13 +83,17 @@ with left:
     if "scanner_results" not in st.session_state:
         st.session_state.scanner_results = []
 
-    if st.session_state.scanner_results:
-        st.dataframe(
-            st.session_state.scanner_results,
-            width="stretch",
-        )
-    else:
-        st.info("Waiting for a TraderTV ticker mention...")
+    @st.fragment(run_every=1)
+    def render_scanner_results() -> None:
+        if st.session_state.scanner_results:
+            st.dataframe(
+                st.session_state.scanner_results,
+                width="stretch",
+            )
+        else:
+            st.info("Waiting for a TraderTV ticker mention...")
+
+    render_scanner_results()
 
     st.subheader("Portfolio Risk")
 
