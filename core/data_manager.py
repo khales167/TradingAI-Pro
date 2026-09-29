@@ -25,8 +25,6 @@ class DataManager:
                 threads=False
             )
 
-            print(df.tail())
-
             if df.empty:
                 print(f"❌ Failed to download {symbol}")
                 return None
