@@ -6,7 +6,7 @@ def calculate_indicators(symbol, df):
 
     if df is None or df.empty:
         return None
-    
+
     df = df.copy()
 
     close = df["Close"].squeeze()
@@ -19,7 +19,7 @@ def calculate_indicators(symbol, df):
     df["MA38"] = SMAIndicator(close, window=38).sma_indicator()
     df["MA209"] = SMAIndicator(close, window=209).sma_indicator()
 
-    # ADX
+    # ADX / DMI
     adx = ADXIndicator(
         high=high,
         low=low,
@@ -49,22 +49,7 @@ def calculate_indicators(symbol, df):
     else:
         df["RVOL"] = 0
 
-    # Debug (احذف هذه الأسطر بعد الانتهاء من التشخيص)
-    print(f"\n===== {symbol} =====")
-    print(df.tail())
-    print(df.columns)
-
     last = df.iloc[-1]
-    print("Columns:", df.columns.tolist())
-    print("Type Close:", type(df["Close"]))
-    print("Close value:")
-    print(df["Close"].tail())
-
-    print("Last row:")
-    print(last)
-
-    print("last['Close'] =", last["Close"])
-
     price = float(close.iloc[-1])
 
     return {
