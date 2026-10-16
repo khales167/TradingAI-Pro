@@ -2,6 +2,8 @@ from pathlib import Path
 import tempfile
 
 import streamlit as st
+import altair as alt
+import pandas as pd
 
 from core.portfolio_risk_dashboard import PortfolioRiskDashboard
 from core.database import DatabaseManager
@@ -384,13 +386,28 @@ with left:
         ):
             equity += float(trade["realized_pl"] or 0)
             curve.append({"Trade": trade_number, "Equity": round(equity, 2)})
-        st.line_chart(
-            curve,
-            x="Trade",
-            y="Equity",
-            x_label="Closed trade number",
-            y_label="Realized equity ($)",
+        equity_values = [point["Equity"] for point in curve]
+        minimum = min(equity_values)
+        maximum = max(equity_values)
+        padding = max(5.0, (maximum - minimum) * 0.2)
+        chart = (
+            alt.Chart(pd.DataFrame(curve))
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("Trade:Q", title="Closed trade number", axis=alt.Axis(tickMinStep=1)),
+                y=alt.Y(
+                    "Equity:Q",
+                    title="Realized equity ($)",
+                    scale=alt.Scale(domain=[minimum - padding, maximum + padding], zero=False),
+                ),
+                tooltip=[
+                    alt.Tooltip("Trade:Q", title="Trade"),
+                    alt.Tooltip("Equity:Q", title="Equity", format="$.2f"),
+                ],
+            )
+            .properties(height=300)
         )
+        st.altair_chart(chart, use_container_width=True)
 
     if closed_trades:
         st.markdown("**Closed Trade History**")
