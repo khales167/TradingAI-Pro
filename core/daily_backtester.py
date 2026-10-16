@@ -28,10 +28,12 @@ class DailyTechnicalBacktester:
         cash = float(initial_cash)
         trades = []
         position = None
+        diagnostics = {"evaluated_bars": 0, "technical_signals": 0, "accepted_entries": 0, "rejected_by_risk": 0, "rejection_reasons": {"trade_risk": 0, "exposure": 0, "cash": 0}, "sample_rejections": []}
         for i in range(209, len(data)):
             today = data.iloc[i]
             yesterday = data.iloc[i - 1]
             if position is None:
+                diagnostics["evaluated_bars"] += 1
                 signal = (
                     yesterday["Close"] > yesterday["MA19"] > yesterday["MA38"] > yesterday["MA209"]
                     and yesterday["ADX"] >= 20
@@ -40,6 +42,7 @@ class DailyTechnicalBacktester:
                     and yesterday["ATR"] > 0
                 )
                 if signal:
+                    diagnostics["technical_signals"] += 1
                     entry = float(today["Open"])
                     risk = 1.5 * float(yesterday["ATR"])
                     shares = min(
@@ -48,6 +51,7 @@ class DailyTechnicalBacktester:
                         int(cash // entry),
                     ) if entry > 0 and risk > 0 else 0
                     if shares:
+                        diagnostics["accepted_entries"] += 1
                         position = {
                             "entry_date": str(data.index[i].date()),
                             "entry": entry,
@@ -56,6 +60,19 @@ class DailyTechnicalBacktester:
                             "target": entry + 2 * risk,
                         }
                         cash -= entry * shares
+                    else:
+                        diagnostics["rejected_by_risk"] += 1
+                        reasons = []
+                        if risk > initial_cash * 0.01:
+                            reasons.append("trade_risk")
+                        if entry > initial_cash * 0.40:
+                            reasons.append("exposure")
+                        if entry > cash:
+                            reasons.append("cash")
+                        for reason in reasons:
+                            diagnostics["rejection_reasons"][reason] += 1
+                        if len(diagnostics["sample_rejections"]) < 5:
+                            diagnostics["sample_rejections"].append({"date": str(data.index[i].date()), "entry": round(entry, 2), "risk_per_share": round(risk, 2), "reasons": reasons})
             if position is not None:
                 stop, target = position["stop"], position["target"]
                 if today["Open"] <= stop:
@@ -78,6 +95,7 @@ class DailyTechnicalBacktester:
                 })
                 position = None
         return {
+            "diagnostics": diagnostics,
             "initial_cash": initial_cash,
             "realized_cash": round(cash + (position["entry"] * position["shares"] if position else 0), 2),
             "closed_trades": len(trades),
