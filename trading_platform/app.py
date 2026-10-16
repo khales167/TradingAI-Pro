@@ -345,6 +345,36 @@ with left:
     )
 
     if closed_trades:
+        chronological = sorted(
+            closed_trades, key=lambda row: (row["exit_date"], row["symbol"])
+        )
+        running_equity = float(summary["account_capital"])
+        equity_peak = running_equity
+        max_drawdown = 0.0
+        daily_pl = {}
+        for trade in chronological:
+            pl = float(trade["realized_pl"] or 0)
+            running_equity += pl
+            equity_peak = max(equity_peak, running_equity)
+            if equity_peak > 0:
+                max_drawdown = max(
+                    max_drawdown,
+                    (equity_peak - running_equity) / equity_peak * 100,
+                )
+            day = str(trade["exit_date"])[:10]
+            daily_pl[day] = daily_pl.get(day, 0.0) + pl
+        st.markdown("**Risk & Daily Performance**")
+        d1, d2 = st.columns(2)
+        d1.metric("Max Realized Drawdown", f"{max_drawdown:.2f}%")
+        d2.metric("Trading Days", len(daily_pl))
+        st.dataframe(
+            [{"Date": day, "Realized P/L": round(pl, 2)}
+             for day, pl in sorted(daily_pl.items())],
+            width="stretch",
+            hide_index=True,
+        )
+
+    if closed_trades:
         st.markdown("**Realized Equity Curve**")
         equity = float(summary["account_capital"])
         curve = [{"Trade": 0, "Equity": equity}]
