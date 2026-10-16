@@ -8,6 +8,7 @@ from core.database import DatabaseManager
 from core.position_sizer import PositionSizer
 from core.order_preview import OrderPreviewBuilder
 from core.paper_trade_simulator import PaperTradeSimulator
+from core.paper_position_monitor import PaperPositionMonitor
 
 from ticker_detector import TickerDetector
 from live_transcription import LiveTranscriptionEngine, WhisperCppBackend
@@ -252,6 +253,46 @@ with left:
 
     if st.session_state.get("paper_trade_notice"):
         st.success(st.session_state.pop("paper_trade_notice"))
+
+    if paper_test_mode:
+        st.subheader("Paper Position Monitor — Test Mode")
+        open_paper_positions = DatabaseManager(db_path).get_portfolio()
+        if open_paper_positions:
+            monitor = PaperPositionMonitor(DatabaseManager(db_path))
+            for position in open_paper_positions:
+                paper_symbol = position["symbol"]
+                st.caption(
+                    f"{paper_symbol} | Entry: ${position['entry_price']:.2f} | "
+                    f"Stop: ${position['stop_price']:.2f} | "
+                    f"Target: ${position['target_price']:.2f}"
+                )
+                with st.form(key=f"monitor_form_{paper_symbol}"):
+                    simulated_price = st.number_input(
+                        f"Simulated market price — {paper_symbol}",
+                        min_value=0.01,
+                        value=float(position["entry_price"]),
+                        step=0.01,
+                        format="%.2f",
+                    )
+                    check_price = st.form_submit_button("Check Simulated Price")
+                if check_price:
+                    monitor_result = monitor.check_symbol(
+                        paper_symbol, simulated_price
+                    )
+                    st.session_state["monitor_notice"] = (
+                        f"{paper_symbol}: "
+                        + (
+                            f"{monitor_result['Trigger']} triggered, "
+                            f"closed at ${monitor_result['ExitPrice']:.2f}"
+                            if monitor_result["Closed"]
+                            else monitor_result["Reason"]
+                        )
+                    )
+                    st.rerun()
+        else:
+            st.caption("No open paper positions to monitor.")
+        if st.session_state.get("monitor_notice"):
+            st.info(st.session_state.pop("monitor_notice"))
 
     st.subheader("Portfolio Risk")
 
