@@ -15,7 +15,9 @@ class PortfolioRiskDashboard:
 
     def get_summary(self):
         invested = self.db.get_open_invested_capital()
-        available_cash = max(0.0, ACCOUNT_CAPITAL - invested)
+        realized_pl = float(self.db.get_performance_summary()['total_realized_pl'])
+        account_equity = max(0.0, ACCOUNT_CAPITAL + realized_pl)
+        available_cash = max(0.0, account_equity - invested)
 
         current_risk = self.db.get_open_portfolio_risk()
         max_portfolio_risk = (
@@ -76,6 +78,8 @@ class PortfolioRiskDashboard:
                 float(ACCOUNT_CAPITAL),
                 2
             ),
+            "realized_pl": round(realized_pl, 2),
+            "account_equity": round(account_equity, 2),
             "invested_capital": round(
                 float(invested),
                 2
