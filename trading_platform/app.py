@@ -215,6 +215,12 @@ with left:
                 ):
                     paper_result = paper_simulator.execute(preview)
                     if paper_result["Executed"]:
+                        st.session_state["paper_trade_notice"] = (
+                            f"Paper position opened: {symbol} "
+                            f"{paper_result['Shares']} share(s) "
+                            f"@ ${paper_result['Entry']:.2f}"
+                        )
+                        st.rerun(scope="app")
                         st.success(
                             f"Paper position opened: {symbol} "
                             f"{paper_result['Shares']} share(s) "
@@ -243,6 +249,9 @@ with left:
             st.divider()
 
     render_scanner_results()
+
+    if st.session_state.get("paper_trade_notice"):
+        st.success(st.session_state.pop("paper_trade_notice"))
 
     st.subheader("Portfolio Risk")
 
