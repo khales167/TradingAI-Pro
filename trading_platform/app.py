@@ -302,8 +302,8 @@ with left:
     c1, c2, c3, c4 = st.columns(4)
 
     c1.metric(
-        "Capital",
-        f"${summary['account_capital']:.2f}",
+        "Account Equity",
+        f"${summary['available_cash'] + summary['invested_capital']:.2f}",
     )
     c2.metric(
         "Available Cash",
