@@ -345,6 +345,24 @@ with left:
     )
 
     if closed_trades:
+        st.markdown("**Realized Equity Curve**")
+        equity = float(summary["account_capital"])
+        curve = [{"Trade": 0, "Equity": equity}]
+        for trade_number, trade in enumerate(
+            sorted(closed_trades, key=lambda row: (row["exit_date"], row["symbol"])),
+            start=1,
+        ):
+            equity += float(trade["realized_pl"] or 0)
+            curve.append({"Trade": trade_number, "Equity": round(equity, 2)})
+        st.line_chart(
+            curve,
+            x="Trade",
+            y="Equity",
+            x_label="Closed trade number",
+            y_label="Realized equity ($)",
+        )
+
+    if closed_trades:
         st.markdown("**Closed Trade History**")
         st.dataframe([dict(trade) for trade in closed_trades], width="stretch")
     else:
