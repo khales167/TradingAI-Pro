@@ -329,6 +329,28 @@ with left:
         st.write("No open positions.")
 
 
+    st.subheader("Paper Trading Performance" if paper_test_mode else "Trading Performance")
+    performance_db = DatabaseManager(db_path)
+    performance = performance_db.get_performance_summary()
+    closed_trades = performance_db.get_closed_positions()
+
+    perf1, perf2, perf3, perf4 = st.columns(4)
+    perf1.metric("Closed Trades", performance["total_trades"])
+    perf2.metric("Realized P/L", f"${performance['total_realized_pl']:.2f}")
+    perf3.metric("Win Rate", f"{performance['win_rate']:.1f}%")
+    profit_factor = performance["profit_factor"]
+    perf4.metric(
+        "Profit Factor",
+        "∞" if profit_factor == float("inf") else f"{profit_factor:.2f}",
+    )
+
+    if closed_trades:
+        st.markdown("**Closed Trade History**")
+        st.dataframe([dict(trade) for trade in closed_trades], width="stretch")
+    else:
+        st.caption("No closed trades yet.")
+
+
 with right:
     st.subheader("TraderTV Live")
 
