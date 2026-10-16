@@ -103,6 +103,31 @@ with left:
     order_preview_builder = OrderPreviewBuilder()
     paper_simulator = PaperTradeSimulator(DatabaseManager(db_path))
 
+    if paper_test_mode and st.button("Inject READY1 Test Signal"):
+        test_signal = {
+            "Symbol": "READY1", "Decision": "BUY", "Price": 100.0,
+            "Score": 90, "Confidence": 90, "Market": "Neutral",
+            "Quality": "A+", "TraderTV": False,
+            "MA19": 99.0, "MA38": 98.0, "MA209": 90.0,
+            "ADX": 25.0, "DI+": 30.0, "DI-": 15.0,
+            "RVOL": 1.5, "Volume": 100000,
+            "Entry": 100.0, "Stop": 95.0, "Target": 110.0,
+            "RR": 2.0, "NewsScore": 0,
+            "Reasons": "Controlled UI test — not a market signal",
+            "DecisionReasons": "Synthetic BUY for isolated paper test only",
+        }
+        st.session_state.scanner_results = [
+            item for item in st.session_state.scanner_results
+            if item.get("Symbol") != "READY1"
+        ] + [test_signal]
+        st.rerun()
+
+    if not paper_test_mode:
+        st.session_state.scanner_results = [
+            item for item in st.session_state.scanner_results
+            if item.get("Symbol") != "READY1"
+        ]
+
     @st.fragment(run_every=1)
     def render_scanner_results() -> None:
         if not st.session_state.scanner_results:
