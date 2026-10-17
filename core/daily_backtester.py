@@ -7,7 +7,10 @@ from ta.volatility import AverageTrueRange
 
 
 class DailyTechnicalBacktester:
-    def run(self, df: pd.DataFrame, initial_cash: float = 500.0) -> dict:
+    def run(self, df: pd.DataFrame, initial_cash: float = 500.0, commission_per_share: float = 0.0, slippage_bps: float = 0.0) -> dict:
+        if initial_cash <= 0 or commission_per_share < 0 or slippage_bps < 0:
+            raise ValueError("Capital must be positive and execution costs non-negative")
+        slip = slippage_bps / 10000.0
         if df is None or len(df) < 230:
             raise ValueError("At least 230 daily OHLCV rows are required")
         data = df.copy().sort_index()
@@ -43,12 +46,13 @@ class DailyTechnicalBacktester:
                 )
                 if signal:
                     diagnostics["technical_signals"] += 1
-                    entry = float(today["Open"])
+                    entry = float(today["Open"]) * (1 + slip)
                     risk = 1.5 * float(yesterday["ATR"])
+                    unit_risk = risk + 2 * entry * slip + 2 * commission_per_share
                     shares = min(
-                        int((initial_cash * 0.01) // risk),
+                        int((initial_cash * 0.01) // unit_risk),
                         int((initial_cash * 0.40) // entry),
-                        int(cash // entry),
+                        int(cash // (entry + commission_per_share)),
                     ) if entry > 0 and risk > 0 else 0
                     if shares:
                         diagnostics["accepted_entries"] += 1
@@ -59,15 +63,15 @@ class DailyTechnicalBacktester:
                             "stop": entry - risk,
                             "target": entry + 2 * risk,
                         }
-                        cash -= entry * shares
+                        cash -= (entry + commission_per_share) * shares
                     else:
                         diagnostics["rejected_by_risk"] += 1
                         reasons = []
-                        if risk > initial_cash * 0.01:
+                        if unit_risk > initial_cash * 0.01:
                             reasons.append("trade_risk")
                         if entry > initial_cash * 0.40:
                             reasons.append("exposure")
-                        if entry > cash:
+                        if entry + commission_per_share > cash:
                             reasons.append("cash")
                         for reason in reasons:
                             diagnostics["rejection_reasons"][reason] += 1
@@ -85,13 +89,15 @@ class DailyTechnicalBacktester:
                     exit_price, reason = target, "TARGET"
                 else:
                     continue
-                cash += position["shares"] * exit_price
+                exit_price *= (1 - slip)
+                cash += position["shares"] * (exit_price - commission_per_share)
                 trades.append({
                     **position,
                     "exit_date": str(data.index[i].date()),
                     "exit": round(exit_price, 2),
                     "reason": reason,
-                    "pl": round((exit_price - position["entry"]) * position["shares"], 2),
+                    "pl": round((exit_price - position["entry"] - 2 * commission_per_share) * position["shares"], 2),
+                    "commission_total": round(2 * commission_per_share * position["shares"], 2),
                 })
                 position = None
         return {
@@ -101,5 +107,6 @@ class DailyTechnicalBacktester:
             "closed_trades": len(trades),
             "trades": trades,
             "open_position": position,
-            "note": "Technical-only; excludes news, commissions, spreads, and unrealized P/L",
+            "execution_costs": {"commission_per_share": commission_per_share, "slippage_bps_per_side": slippage_bps},
+            "note": "Technical-only; excludes news, spread and unrealized P/L; commissions and slippage configurable",
         }
