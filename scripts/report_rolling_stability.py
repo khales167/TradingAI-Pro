@@ -30,8 +30,13 @@ def main():
         if len(df) < WARMUP_BARS + WINDOW_BARS:
             raise ValueError(f"{symbol}: insufficient snapshot history")
         window_no = 0
-        for start_idx in range(WARMUP_BARS, len(df), WINDOW_BARS):
-            end_idx = min(start_idx + WINDOW_BARS, len(df))
+        starts = list(range(WARMUP_BARS, len(df), WINDOW_BARS))
+        # The engine requires 230 rows: 209 warm-up + 21 evaluation.
+        # Merge a shorter trailing window into the preceding window.
+        if len(starts) > 1 and len(df) - starts[-1] < 21:
+            starts.pop()
+        for index, start_idx in enumerate(starts):
+            end_idx = len(df) if index == len(starts) - 1 else min(start_idx + WINDOW_BARS, len(df))
             # The engine's first eligible entry is at offset 209, i.e.
             # exactly the first date of the evaluation window.
             window = df.iloc[start_idx - WARMUP_BARS:end_idx]
