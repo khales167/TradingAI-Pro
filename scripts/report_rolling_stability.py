@@ -52,7 +52,11 @@ def main():
             eval_end = str(df.index[end_idx - 1].date())
             assert all(eval_start <= t["entry_date"] <= eval_end for t in result["trades"])
             assert all(eval_start <= t["exit_date"] <= eval_end for t in result["trades"])
-            assert abs(stats["realized_pl"] - (result["realized_cash"] - CAPITAL)) < 1e-7
+            # An open position has already incurred entry commission, while
+            # closed-trade P/L intentionally excludes that open trade.
+            # Therefore the two accounting views need not match at a boundary.
+            if not result["open_position"]:
+                assert abs(stats["realized_pl"] - (result["realized_cash"] - CAPITAL)) < 1e-7
             window_no += 1
             rows.append({
                 "symbol": symbol,
