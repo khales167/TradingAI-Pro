@@ -1,18 +1,30 @@
 """Backtest-only daily price loader; does not change live scanner data."""
+from datetime import date
+
 import pandas as pd
 import yfinance as yf
 
 
-def load_backtest_data(symbol: str, period: str = "2y") -> pd.DataFrame:
+def load_backtest_data(symbol: str, period: str = "2y", *, start: str | None = None, end: str | None = None) -> pd.DataFrame:
     """Download consistently adjusted OHLC; preserve raw volume.
 
-    auto_adjust=True adjusts historical OHLC for splits and cash dividends.
+    Use start/end together for a fixed date window (end is exclusive).\n    auto_adjust=True adjusts historical OHLC for splits and cash dividends.
     This is suitable for a first-pass consistency check, but dividend-adjusted
     OHLC is not identical to historically executable market prices.
     """
+    if (start is None) != (end is None):
+        raise ValueError("Provide both start and end, or neither")
+    if start is not None:
+        try:
+            start_date, end_date = date.fromisoformat(start), date.fromisoformat(end)
+        except (ValueError, TypeError) as exc:
+            raise ValueError("start and end must be YYYY-MM-DD") from exc
+        if start_date >= end_date:
+            raise ValueError("start must precede end (exclusive)")
+    date_options = {"start": start, "end": end} if start is not None else {"period": period}
     df = yf.download(
         tickers=symbol,
-        period=period,
+        **date_options,
         interval="1d",
         auto_adjust=True,
         progress=False,
