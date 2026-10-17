@@ -46,9 +46,14 @@ class DailyTechnicalBacktester:
                 )
                 if signal:
                     diagnostics["technical_signals"] += 1
-                    entry = float(today["Open"]) * (1 + slip)
+                    reference_open = float(today["Open"])
+                    entry = reference_open * (1 + slip)
                     risk = 1.5 * float(yesterday["ATR"])
-                    unit_risk = risk + 2 * entry * slip + 2 * commission_per_share
+                    stop = reference_open - risk
+                    target = reference_open + 2 * risk
+                    # Conservative planned stop risk including both-side costs.
+                    stop_fill_estimate = stop * (1 - slip)
+                    unit_risk = entry - stop_fill_estimate + 2 * commission_per_share
                     shares = min(
                         int((initial_cash * 0.01) // unit_risk),
                         int((initial_cash * 0.40) // entry),
@@ -59,9 +64,10 @@ class DailyTechnicalBacktester:
                         position = {
                             "entry_date": str(data.index[i].date()),
                             "entry": entry,
+                            "reference_open": reference_open,
                             "shares": shares,
-                            "stop": entry - risk,
-                            "target": entry + 2 * risk,
+                            "stop": stop,
+                            "target": target,
                         }
                         cash -= (entry + commission_per_share) * shares
                     else:
@@ -76,7 +82,7 @@ class DailyTechnicalBacktester:
                         for reason in reasons:
                             diagnostics["rejection_reasons"][reason] += 1
                         if len(diagnostics["sample_rejections"]) < 5:
-                            diagnostics["sample_rejections"].append({"date": str(data.index[i].date()), "entry": round(entry, 2), "risk_per_share": round(risk, 2), "reasons": reasons})
+                            diagnostics["sample_rejections"].append({"date": str(data.index[i].date()), "entry": round(entry, 2), "risk_per_share": round(unit_risk, 2), "reasons": reasons})
             if position is not None:
                 stop, target = position["stop"], position["target"]
                 if today["Open"] <= stop:
@@ -89,12 +95,14 @@ class DailyTechnicalBacktester:
                     exit_price, reason = target, "TARGET"
                 else:
                     continue
+                raw_exit_price = exit_price
                 exit_price *= (1 - slip)
                 cash += position["shares"] * (exit_price - commission_per_share)
                 trades.append({
                     **position,
                     "exit_date": str(data.index[i].date()),
                     "exit": round(exit_price, 2),
+                    "raw_exit": round(raw_exit_price, 2),
                     "reason": reason,
                     "pl": round((exit_price - position["entry"] - 2 * commission_per_share) * position["shares"], 2),
                     "commission_total": round(2 * commission_per_share * position["shares"], 2),
@@ -108,5 +116,5 @@ class DailyTechnicalBacktester:
             "trades": trades,
             "open_position": position,
             "execution_costs": {"commission_per_share": commission_per_share, "slippage_bps_per_side": slippage_bps},
-            "note": "Technical-only; excludes news, spread and unrealized P/L; commissions and slippage configurable",
+            "note": "Technical-only; excludes news, spread and unrealized P/L; stops/targets anchored to un-slipped open; costs configurable",
         }
