@@ -101,17 +101,17 @@ class DailyTechnicalBacktester:
                 trades.append({
                     **position,
                     "exit_date": str(data.index[i].date()),
-                    "exit": round(exit_price, 2),
-                    "raw_exit": round(raw_exit_price, 2),
+                    "exit": exit_price,
+                    "raw_exit": raw_exit_price,
                     "reason": reason,
-                    "pl": round((exit_price - position["entry"] - 2 * commission_per_share) * position["shares"], 2),
-                    "commission_total": round(2 * commission_per_share * position["shares"], 2),
+                    "pl": (exit_price - position["entry"] - 2 * commission_per_share) * position["shares"],
+                    "commission_total": 2 * commission_per_share * position["shares"],
                 })
                 position = None
         return {
             "diagnostics": diagnostics,
             "initial_cash": initial_cash,
-            "realized_cash": round(cash + (position["entry"] * position["shares"] if position else 0), 2),
+            "realized_cash": cash + (position["entry"] * position["shares"] if position else 0),
             "closed_trades": len(trades),
             "trades": trades,
             "open_position": position,
