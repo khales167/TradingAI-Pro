@@ -51,6 +51,8 @@ def main():
         "equity": round(p["equity"], 4),
         "drawdown": round(p["drawdown_pct"], 4),
     } for p in curve])
+    markers = json.dumps([{"date": t["entry_date"], "kind": "BUY", "shares": t["shares"]} for t in result["trades"] + ([result["open_position"]] if result["open_position"] else [])] + [{"date": t["exit_date"], "kind": "SELL", "shares": t["shares"], "pl": round(t["pl"], 2)} for t in result["trades"]])
+    history = json.dumps([{"entry": t["entry_date"], "exit": t["exit_date"], "shares": t["shares"], "entry_price": round(t["entry"], 2), "exit_price": round(t["exit"], 2), "pl": round(t["pl"], 2), "reason": t["reason"]} for t in result["trades"]])
     max_dd = abs(min(p["drawdown_pct"] for p in curve))
     pnl = end["equity"] - CAPITAL
     html = r"""<!doctype html>
@@ -65,7 +67,7 @@ h1{margin-bottom:4px}p{color:#aab8ce}
 .stat,.panel{background:#142036;border:1px solid #263850;border-radius:12px;padding:18px}
 .stat small{display:block;color:#aab8ce}.stat strong{font-size:24px}
 .panel{margin:16px 0}canvas{width:100%;height:280px;display:block}
-.negative{color:#fb7185}footer{font-size:13px;color:#aab8ce;margin:25px 0}
+.negative{color:#fb7185}.positive{color:#4ade80}table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:10px;text-align:left;border-bottom:1px solid #263850}th{color:#aab8ce}.scroll{overflow-x:auto}.legend{font-size:13px;color:#aab8ce}footer{font-size:13px;color:#aab8ce;margin:25px 0}
 </style></head><body>
 <h1>TradingAI-Pro | Daily Backtest Equity</h1>
 <p>NVDA · Technical-only · $2,000 initial · 1% risk · 5 bps/side · $0.005/share/side</p>
@@ -76,11 +78,14 @@ h1{margin-bottom:4px}p{color:#aab8ce}
 <div class="stat"><small>Max daily drawdown</small><strong id="dd"></strong></div>
 <div class="stat"><small>Closed trades</small><strong id="trades"></strong></div>
 </div>
-<div class="panel"><h2>Daily Equity Curve</h2><canvas id="equityChart" role="img" aria-label="Daily equity curve"></canvas></div>
+<div class="panel"><h2>Daily Equity Curve</h2><p class="legend">● Green = BUY &nbsp; ● Red = SELL (markers show dates on equity, not execution prices)</p><canvas id="equityChart" role="img" aria-label="Daily equity curve"></canvas></div>
+<div class="panel"><h2>Trade History</h2><div class="scroll"><table><thead><tr><th>Entry</th><th>Exit</th><th>Shares</th><th>Entry $</th><th>Exit $</th><th>Net P/L</th><th>Reason</th></tr></thead><tbody id="tradeRows"></tbody></table></div></div>
 <div class="panel"><h2>Drawdown from running peak (%)</h2><canvas id="ddChart" role="img" aria-label="Daily drawdown curve"></canvas></div>
 <footer>End-of-day mark-to-market; adjusted OHLC; excludes spread and intraday drawdown. This is not a live portfolio.</footer>
 <script>
-const data=__POINTS__;
+const data=__POINTS__, markers=__MARKERS__, history=__HISTORY__;
+const rows=document.getElementById("tradeRows");
+for(const t of history){const tr=document.createElement("tr");for(const v of [t.entry,t.exit,t.shares,t.entry_price.toFixed(2),t.exit_price.toFixed(2),t.pl.toFixed(2),t.reason]){const td=document.createElement("td");td.textContent=v;tr.appendChild(td)}tr.children[5].className=t.pl>=0?"positive":"negative";rows.appendChild(tr)}
 const initial=__CAPITAL__, trades=__TRADES__;
 const usd=n=>new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(n);
 const last=data[data.length-1], pnl=last.equity-initial;
@@ -110,6 +115,14 @@ function plot(id,key,color,baseline){
  ctx.moveTo(pad.left,y(baseline));ctx.lineTo(width-pad.right,y(baseline));ctx.stroke();ctx.setLineDash([]);
  ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();
  values.forEach((v,i)=>i?ctx.lineTo(x(i),y(v)):ctx.moveTo(x(i),y(v)));ctx.stroke();
+ if(key==="equity"){
+  const index=new Map(data.map((p,i)=>[p.date,i]));
+  for(const m of markers){const i=index.get(m.date);if(i===undefined)continue;
+   const xx=x(i), yy=y(values[i]);ctx.beginPath();ctx.arc(xx,yy,5,0,2*Math.PI);
+   ctx.fillStyle=m.kind==="BUY"?"#4ade80":"#fb7185";ctx.fill();
+   ctx.strokeStyle="#0b1220";ctx.lineWidth=1;ctx.stroke();
+  }
+ }
  ctx.fillStyle="#aab8ce";ctx.textAlign="left";ctx.fillText(data[0].date,pad.left,height-8);
  ctx.textAlign="right";ctx.fillText(data[data.length-1].date,width-pad.right,height-8);
 }
@@ -118,7 +131,9 @@ window.addEventListener("resize",render);render();
 </script></body></html>"""
     html = (html.replace("__POINTS__", points)
                 .replace("__CAPITAL__", str(CAPITAL))
-                .replace("__TRADES__", str(result["closed_trades"])))
+                .replace("__TRADES__", str(result["closed_trades"]))
+                .replace("__MARKERS__", markers)
+                .replace("__HISTORY__", history))
     html_path = OUTPUT / "backtest_equity.html"
     html_path.write_text(html, encoding="utf-8")
     print(f"PASS: equity reconciles | End equity: ${end['equity']:.2f}")
