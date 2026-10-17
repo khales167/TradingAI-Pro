@@ -36,6 +36,31 @@ def main():
             assert trade["shares"] >= 1
             assert trade["shares"] * (trade["entry"] - trade["stop"] * 1.0) <= 2000 * pct / 100 + 1e-8
         print(f"PASS: risk={pct}% signals={d['technical_signals']} accepted={d['accepted_entries']} rejected={d['rejected_by_risk']} reasons={reason_counts}")
+    # Rejected-signal regression cases using the same deterministic trend.
+    # Very small risk budget rejects otherwise-valid technical signals.
+    risk_rejected = engine.run(data, initial_cash=2000, risk_per_trade_pct=0.01)
+    rd = risk_rejected["diagnostics"]
+    assert rd["technical_signals"] > 0
+    assert rd["accepted_entries"] == 0
+    assert rd["rejected_by_risk"] == rd["technical_signals"]
+    assert rd["rejection_reasons"]["trade_risk"] == rd["rejected_by_risk"]
+    print(f"PASS: trade-risk rejections={rd['rejected_by_risk']}")
+
+    # With $100 initial capital and a 40% exposure cap, even one share
+    # of this trending $100+ stock is unaffordable under exposure rules.
+    exposure_rejected = engine.run(data, initial_cash=100, risk_per_trade_pct=100)
+    ed = exposure_rejected["diagnostics"]
+    assert ed["technical_signals"] > 0
+    assert ed["accepted_entries"] == 0
+    assert ed["rejection_reasons"]["exposure"] == ed["rejected_by_risk"]
+    print(f"PASS: exposure rejections={ed['rejected_by_risk']}")
+
+    # Check scenario-specific risk threshold: at 2% the same per-share
+    # risk must not be diagnosed against the old hardcoded 1% budget.
+    scenario = engine.run(data, initial_cash=2000, risk_per_trade_pct=2)
+    sd = scenario["diagnostics"]
+    assert sd["rejection_reasons"]["trade_risk"] == 0, sd
+    print("PASS: 2% scenario does not use old 1% diagnostic threshold")
     for invalid in (-1, 0, 101):
         try:
             engine.run(data, initial_cash=2000, risk_per_trade_pct=invalid)
