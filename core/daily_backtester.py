@@ -7,9 +7,9 @@ from ta.volatility import AverageTrueRange
 
 
 class DailyTechnicalBacktester:
-    def run(self, df: pd.DataFrame, initial_cash: float = 500.0, commission_per_share: float = 0.0, slippage_bps: float = 0.0) -> dict:
-        if initial_cash <= 0 or commission_per_share < 0 or slippage_bps < 0:
-            raise ValueError("Capital must be positive and execution costs non-negative")
+    def run(self, df: pd.DataFrame, initial_cash: float = 500.0, commission_per_share: float = 0.0, slippage_bps: float = 0.0, risk_per_trade_pct: float = 1.0) -> dict:
+        if initial_cash <= 0 or commission_per_share < 0 or slippage_bps < 0 or not (0 < risk_per_trade_pct <= 100):
+            raise ValueError("Capital must be positive, costs non-negative, and risk percentage within (0, 100]")
         slip = slippage_bps / 10000.0
         if df is None or len(df) < 230:
             raise ValueError("At least 230 daily OHLCV rows are required")
@@ -55,7 +55,7 @@ class DailyTechnicalBacktester:
                     stop_fill_estimate = stop * (1 - slip)
                     unit_risk = entry - stop_fill_estimate + 2 * commission_per_share
                     shares = min(
-                        int((initial_cash * 0.01) // unit_risk),
+                        int((initial_cash * (risk_per_trade_pct / 100.0)) // unit_risk),
                         int((initial_cash * 0.40) // entry),
                         int(cash // (entry + commission_per_share)),
                     ) if entry > 0 and risk > 0 else 0
@@ -111,6 +111,7 @@ class DailyTechnicalBacktester:
         return {
             "diagnostics": diagnostics,
             "initial_cash": initial_cash,
+            "risk_per_trade_pct": risk_per_trade_pct,
             "realized_cash": cash + (position["entry"] * position["shares"] if position else 0),
             "closed_trades": len(trades),
             "trades": trades,
