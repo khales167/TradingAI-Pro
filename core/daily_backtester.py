@@ -31,7 +31,7 @@ class DailyTechnicalBacktester:
         cash = float(initial_cash)
         trades = []
         position = None
-        diagnostics = {"evaluated_bars": 0, "technical_signals": 0, "accepted_entries": 0, "rejected_by_risk": 0, "rejection_reasons": {"trade_risk": 0, "exposure": 0, "cash": 0}, "sample_rejections": []}
+        diagnostics = {"evaluated_bars": 0, "technical_signals": 0, "accepted_entries": 0, "rejected_by_risk": 0, "rejection_reasons": {"trade_risk": 0, "exposure": 0, "cash": 0, "position_size_zero": 0}, "sample_rejections": []}
         for i in range(209, len(data)):
             today = data.iloc[i]
             yesterday = data.iloc[i - 1]
@@ -73,12 +73,14 @@ class DailyTechnicalBacktester:
                     else:
                         diagnostics["rejected_by_risk"] += 1
                         reasons = []
-                        if unit_risk > initial_cash * 0.01:
+                        if unit_risk <= 0 or unit_risk > initial_cash * (risk_per_trade_pct / 100.0):
                             reasons.append("trade_risk")
-                        if entry > initial_cash * 0.40:
+                        if entry <= 0 or entry > initial_cash * 0.40:
                             reasons.append("exposure")
                         if entry + commission_per_share > cash:
                             reasons.append("cash")
+                        if not reasons:
+                            reasons.append("position_size_zero")
                         for reason in reasons:
                             diagnostics["rejection_reasons"][reason] += 1
                         if len(diagnostics["sample_rejections"]) < 5:
