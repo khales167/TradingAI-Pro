@@ -41,11 +41,13 @@ def technical_signal(y):
 
 def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
                   max_portfolio_risk_pct=3.0, max_positions=5,
-                  commission=0.005, slippage_bps=5.0, record_daily=False):
+                  commission=0.005, slippage_bps=5.0, record_daily=False, entry_priority="alphabetical"):
     if capital <= 0 or not (0 < risk_pct <= 100) or not (0 < max_exposure_pct <= 100):
         raise ValueError("Invalid capital or risk/exposure limits")
     if not (0 < max_portfolio_risk_pct <= 100) or max_positions < 1 or commission < 0 or slippage_bps < 0:
         raise ValueError("Invalid portfolio limits or execution costs")
+    if entry_priority not in ("alphabetical", "reverse", "adx"):
+        raise ValueError("Unknown entry priority")
     slip = slippage_bps / 10000
     symbols = sorted(frames)
     if not symbols:
@@ -63,7 +65,18 @@ def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
     for i in range(209, len(dates)):
         date = str(dates[i].date())
         # Evaluate all entries first, with fixed alphabetical tie-breaking.
-        for symbol in symbols:
+        if entry_priority == "reverse":
+            ordered_symbols = list(reversed(symbols))
+        elif entry_priority == "adx":
+            # ADX from previous completed bar only; alphabetical ties.
+            ordered_symbols = sorted(symbols, key=lambda s: (
+                -float(frames[s].iloc[i - 1]["ADX"])
+                if math.isfinite(float(frames[s].iloc[i - 1]["ADX"])) else float("inf"),
+                s,
+            ))
+        else:
+            ordered_symbols = symbols
+        for symbol in ordered_symbols:
             if symbol in positions:
                 continue
             y = frames[symbol].iloc[i - 1]
