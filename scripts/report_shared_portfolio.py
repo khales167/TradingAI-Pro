@@ -41,13 +41,15 @@ def technical_signal(y):
 
 def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
                   max_portfolio_risk_pct=3.0, max_positions=5,
-                  commission=0.005, slippage_bps=5.0, record_daily=False, entry_priority="alphabetical", signal_fn=None):
+                  commission=0.005, slippage_bps=5.0, record_daily=False, entry_priority="alphabetical", signal_fn=None, break_even_r=None):
     if capital <= 0 or not (0 < risk_pct <= 100) or not (0 < max_exposure_pct <= 100):
         raise ValueError("Invalid capital or risk/exposure limits")
     if not (0 < max_portfolio_risk_pct <= 100) or max_positions < 1 or commission < 0 or slippage_bps < 0:
         raise ValueError("Invalid portfolio limits or execution costs")
     if entry_priority not in ("alphabetical", "reverse", "adx"):
         raise ValueError("Unknown entry priority")
+    if break_even_r is not None and (not math.isfinite(break_even_r) or break_even_r <= 0):
+        raise ValueError("break_even_r must be positive and finite")
     slip = slippage_bps / 10000
     symbols = sorted(frames)
     if not symbols:
@@ -118,7 +120,7 @@ def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
             positions[symbol] = {
                 "symbol": symbol, "entry_date": date, "entry": entry,
                 "shares": shares, "stop": stop, "target": target,
-                "unit_risk": unit_risk,
+                "unit_risk": unit_risk, "initial_stop": stop,
             }
             cash -= shares * (entry + commission)
             diagnostics["accepted"] += 1
@@ -143,6 +145,18 @@ def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
             trades.append({**p, "exit_date": date, "exit": exit_fill,
                            "reason": reason, "pl": pl})
             del positions[symbol]
+        # Break-even activation is delayed until the NEXT session. A daily OHLC
+        # candle cannot tell whether +1R happened before an intraday stop.
+        # Set the protective stop at entry fill; commissions/slippage can still
+        # make a "break-even" exit a small loss.
+        if break_even_r is not None:
+            for symbol, p in positions.items():
+                if p.get("break_even_armed"):
+                    continue
+                trigger = p["entry"] + break_even_r * (p["entry"] - p["initial_stop"])
+                if float(frames[symbol].iloc[i]["High"]) >= trigger:
+                    p["break_even_armed"] = True
+                    p["stop"] = max(p["stop"], p["entry"])
         if record_daily:
             marked_value = sum(
                 p["shares"] * float(frames[s].iloc[i]["Close"])
