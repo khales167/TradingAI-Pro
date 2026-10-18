@@ -1,10 +1,21 @@
 """Daily technical-only backtest. No live orders or portfolio writes."""
 from __future__ import annotations
 
+import math
+
 import pandas as pd
 from ta.trend import SMAIndicator, ADXIndicator
 from ta.volatility import AverageTrueRange
 
+
+def risk_limited_shares(budget: float, unit_risk: float) -> int:
+    """Allow only negligible floating-point noise at exact risk boundaries."""
+    if not (math.isfinite(budget) and math.isfinite(unit_risk)) or budget <= 0 or unit_risk <= 0:
+        return 0
+    shares = int(budget // unit_risk)
+    if math.isclose((shares + 1) * unit_risk, budget, rel_tol=0.0, abs_tol=1e-10):
+        shares += 1
+    return shares
 
 class DailyTechnicalBacktester:
     def run(self, df: pd.DataFrame, initial_cash: float = 500.0, commission_per_share: float = 0.0, slippage_bps: float = 0.0, risk_per_trade_pct: float = 1.0) -> dict:
@@ -55,7 +66,7 @@ class DailyTechnicalBacktester:
                     stop_fill_estimate = stop * (1 - slip)
                     unit_risk = entry - stop_fill_estimate + 2 * commission_per_share
                     shares = min(
-                        int((initial_cash * (risk_per_trade_pct / 100.0)) // unit_risk),
+                        risk_limited_shares(initial_cash * (risk_per_trade_pct / 100.0), unit_risk),
                         int((initial_cash * 0.40) // entry),
                         int(cash // (entry + commission_per_share)),
                     ) if entry > 0 and risk > 0 else 0
@@ -73,7 +84,7 @@ class DailyTechnicalBacktester:
                     else:
                         diagnostics["rejected_by_risk"] += 1
                         reasons = []
-                        if unit_risk <= 0 or unit_risk > initial_cash * (risk_per_trade_pct / 100.0):
+                        if unit_risk <= 0 or risk_limited_shares(initial_cash * (risk_per_trade_pct / 100.0), unit_risk) == 0:
                             reasons.append("trade_risk")
                         if entry <= 0 or entry > initial_cash * 0.40:
                             reasons.append("exposure")
