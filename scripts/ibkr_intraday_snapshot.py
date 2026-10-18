@@ -92,7 +92,7 @@ def main():
             })
         rows.sort(key=lambda row: row["timestamp_utc"])
         # Immutable filename is derived from exact returned timestamps and content.
-        data = "\n".join(",".join(str(row[key]) for key in rows[0]) for row in rows) + "\n"
+        data = ",".join(rows[0].keys()) + "\n" + "\n".join(",".join(str(row[key]) for key in rows[0]) for row in rows) + "\n"
         digest = hashlib.sha256(data.encode("utf-8")).hexdigest()
         name = f"{symbol}_1m_{rows[0]['timestamp_utc'][:10]}_{rows[-1]['timestamp_utc'][:10]}_{digest[:12]}"
         OUT.mkdir(parents=True, exist_ok=True)
