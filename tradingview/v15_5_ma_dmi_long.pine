@@ -1,0 +1,83 @@
+//@version=6
+strategy("TradingAI-Pro V15.5 | MA19/38/209 + DMI | Long Only", overlay=true,
+     initial_capital=1000, currency=currency.USD, pyramiding=0,
+     default_qty_type=strategy.fixed, commission_type=strategy.commission.cash_per_order,
+     commission_value=0.50, slippage=2, process_orders_on_close=false,
+     calc_on_every_tick=false)
+
+string TZ = "America/New_York"
+int fastLen = input.int(19, "Fast MA", minval=1)
+int midLen = input.int(38, "Mid MA", minval=2)
+int slowLen = input.int(209, "Slow MA / stop reference", minval=3)
+int diLen = input.int(14, "DMI length", minval=2)
+int adxSmooth = input.int(14, "ADX smoothing", minval=2)
+float minAdx = input.float(25, "Minimum ADX", minval=0)
+float riskPct = input.float(1, "Risk per trade (%)", minval=0.1, maxval=5, step=0.1)
+float rewardR = input.float(2, "Target (R)", minval=0.25, step=0.25)
+int bufferTicks = input.int(2, "Stop buffer below MA209 (ticks)", minval=1)
+float maxExposurePct = input.float(100, "Maximum cash exposure (%)", minval=1, maxval=100)
+bool oneTradeDay = input.bool(true, "One trade per NY day")
+int lastEntryHour = input.int(11, "Last entry hour NY", minval=9, maxval=15)
+int lastEntryMinute = input.int(0, "Last entry minute NY", minval=0, maxval=59)
+
+bool oneMinute = timeframe.isminutes and timeframe.multiplier == 1
+bool rth = not na(time(timeframe.period, "0930-1600", TZ))
+bool eod = not na(time(timeframe.period, "1555-1600", TZ))
+int nyDate = year(time, TZ) * 10000 + month(time, TZ) * 100 + dayofmonth(time, TZ)
+bool newDay = na(nyDate[1]) or nyDate != nyDate[1]
+var bool tradedToday = false
+var float fixedStop = na
+var float fixedTarget = na
+var bool pendingEntry = false
+if newDay
+    tradedToday := false
+    pendingEntry := false
+
+float ma19 = ta.sma(close, fastLen)
+float ma38 = ta.sma(close, midLen)
+float ma209 = ta.sma(close, slowLen)
+[diPlus, diMinus, adx] = ta.dmi(diLen, adxSmooth)
+bool crossUp = ta.crossover(ma19, ma38)
+bool dmiOk = diPlus > diMinus and adx > minAdx
+bool trendOk = ma19 > ma209 and ma38 > ma209 and close > ma209
+int minuteOfDay = hour(time, TZ) * 60 + minute(time, TZ)
+int entryCutoff = lastEntryHour * 60 + lastEntryMinute
+bool entryWindow = rth and minuteOfDay >= 9 * 60 + 35 and minuteOfDay <= entryCutoff
+float candidateStop = ma209 - bufferTicks * syminfo.mintick
+float stopDistance = close - candidateStop
+float riskBudget = strategy.equity * riskPct / 100
+int riskShares = not na(stopDistance) and stopDistance > 0 ? int(math.floor(riskBudget / stopDistance)) : 0
+int cashShares = close > 0 ? int(math.floor(strategy.equity * maxExposurePct / 100 / close)) : 0
+int qty = math.min(riskShares, cashShares)
+bool enter = oneMinute and barstate.isconfirmed and entryWindow and crossUp and dmiOk and trendOk and
+     strategy.position_size == 0 and not pendingEntry and (not oneTradeDay or not tradedToday) and qty >= 1 and strategy.equity > 0
+
+if enter
+    fixedStop := candidateStop
+    fixedTarget := close + rewardR * stopDistance
+    pendingEntry := true
+    tradedToday := true
+    strategy.entry("MA-L", strategy.long, qty=qty, comment="MA CROSS BUY")
+    strategy.exit("MA-X", "MA-L", stop=fixedStop, limit=fixedTarget, comment_profit="TARGET_R", comment_loss="STOP_MA209")
+
+if strategy.position_size > 0
+    pendingEntry := false
+    strategy.exit("MA-X", "MA-L", stop=fixedStop, limit=fixedTarget, comment_profit="TARGET_R", comment_loss="STOP_MA209")
+
+if eod and strategy.position_size > 0
+    strategy.close("MA-L", comment="EOD FLAT", immediately=true)
+
+if eod and pendingEntry and strategy.position_size == 0
+    strategy.cancel("MA-L")
+    strategy.cancel("MA-X")
+    pendingEntry := false
+
+plot(ma19, "MA 19", color=color.aqua, linewidth=2)
+plot(ma38, "MA 38", color=color.orange, linewidth=2)
+plot(ma209, "MA 209", color=color.fuchsia, linewidth=2)
+plot(strategy.position_size > 0 ? fixedStop : na, "Fixed stop", color=color.red, style=plot.style_linebr)
+plot(strategy.position_size > 0 ? fixedTarget : na, "Fixed target", color=color.lime, style=plot.style_linebr)
+plotshape(enter, title="MA Cross Buy", style=shape.triangleup, location=location.belowbar,
+     color=color.lime, size=size.small, text="BUY")
+bgcolor(not oneMinute ? color.new(color.red, 85) : na, title="1-minute required")
+alertcondition(enter, title="MA19/38 DMI Long", message="TradingAI-Pro V15.5 MA19/38 + DMI Long signal {{ticker}}")
