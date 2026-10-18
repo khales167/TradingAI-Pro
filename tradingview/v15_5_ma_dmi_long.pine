@@ -17,8 +17,8 @@ float rewardR = input.float(1, "Target (R)", minval=0.25, step=0.25)
 int bufferTicks = input.int(2, "Stop buffer below MA209 (ticks)", minval=1)
 float maxExposurePct = input.float(100, "Maximum cash exposure (%)", minval=1, maxval=100)
 bool oneTradeDay = input.bool(true, "One trade per NY day")
-int lastEntryHour = input.int(11, "Last entry hour NY", minval=9, maxval=15)
-int lastEntryMinute = input.int(0, "Last entry minute NY", minval=0, maxval=59)
+int lastEntryHour = input.int(15, "Last entry hour NY", minval=9, maxval=15)
+int lastEntryMinute = input.int(54, "Last entry minute NY", minval=0, maxval=59)
 
 bool oneMinute = timeframe.isminutes and timeframe.multiplier == 1
 bool rth = not na(time(timeframe.period, "0930-1600", TZ))
@@ -42,7 +42,7 @@ bool dmiOk = diPlus > diMinus and adx > minAdx
 bool trendOk = ma19 > ma209 and ma38 > ma209 and close > ma209
 int minuteOfDay = hour(time, TZ) * 60 + minute(time, TZ)
 int entryCutoff = lastEntryHour * 60 + lastEntryMinute
-bool entryWindow = rth and minuteOfDay >= 9 * 60 + 35 and minuteOfDay <= entryCutoff
+bool entryWindow = rth and not eod and minuteOfDay >= 9 * 60 + 35 and minuteOfDay <= math.min(entryCutoff, 15 * 60 + 54)
 float candidateStop = ma209 - bufferTicks * syminfo.mintick
 float stopDistance = close - candidateStop
 float riskBudget = strategy.equity * riskPct / 100
