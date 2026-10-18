@@ -41,7 +41,7 @@ def technical_signal(y):
 
 def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
                   max_portfolio_risk_pct=3.0, max_positions=5,
-                  commission=0.005, slippage_bps=5.0, record_daily=False, entry_priority="alphabetical"):
+                  commission=0.005, slippage_bps=5.0, record_daily=False, entry_priority="alphabetical", signal_fn=None):
     if capital <= 0 or not (0 < risk_pct <= 100) or not (0 < max_exposure_pct <= 100):
         raise ValueError("Invalid capital or risk/exposure limits")
     if not (0 < max_portfolio_risk_pct <= 100) or max_positions < 1 or commission < 0 or slippage_bps < 0:
@@ -80,7 +80,7 @@ def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
             if symbol in positions:
                 continue
             y = frames[symbol].iloc[i - 1]
-            if not technical_signal(y):
+            if not (technical_signal(y) if signal_fn is None else signal_fn(frames[symbol], i)) :
                 continue
             diagnostics["signals"] += 1
             today = frames[symbol].iloc[i]
