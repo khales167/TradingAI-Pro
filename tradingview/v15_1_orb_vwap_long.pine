@@ -1,0 +1,87 @@
+//@version=6
+strategy("TradingAI-Pro V15.1 | ORB 5m + VWAP | Long Only", overlay=true,
+     initial_capital=1000, currency=currency.USD, pyramiding=0,
+     default_qty_type=strategy.fixed, commission_type=strategy.commission.cash_per_order,
+     commission_value=0.50, slippage=2, process_orders_on_close=false,
+     calc_on_every_tick=false)
+
+string TZ = "America/New_York"
+float riskPct = input.float(1.0, "Risk per trade (%)", minval=0.1, maxval=5.0, step=0.1)
+float rr = input.float(2.0, "Reward / risk", minval=0.5, maxval=5.0, step=0.25)
+int volumeLen = input.int(20, "Volume SMA length", minval=2)
+float volumeMult = input.float(1.5, "Volume multiplier", minval=0.1, step=0.1)
+int lastEntryHour = input.int(11, "Last entry hour NY", minval=9, maxval=15)
+int lastEntryMinute = input.int(0, "Last entry minute NY", minval=0, maxval=59)
+float exposurePct = input.float(100.0, "Max capital deployed (%)", minval=1, maxval=100, step=1)
+bool useVolume = input.bool(true, "Require volume confirmation")
+
+bool oneMinute = timeframe.isminutes and timeframe.multiplier == 1
+bool inRth = not na(time(timeframe.period, "0930-1600", TZ))
+bool inOrb = not na(time(timeframe.period, "0930-0935", TZ))
+bool flattenWindow = not na(time(timeframe.period, "1555-1600", TZ))
+int dayKey = year(time, TZ) * 10000 + month(time, TZ) * 100 + dayofmonth(time, TZ)
+bool newDay = na(dayKey[1]) or dayKey != dayKey[1]
+
+var float orbHigh = na
+var float orbLow = na
+var bool tradedToday = false
+var float activeStop = na
+var float activeTarget = na
+var bool pendingEntry = false
+
+if newDay
+    orbHigh := na
+    orbLow := na
+    tradedToday := false
+    pendingEntry := false
+
+if inOrb
+    orbHigh := na(orbHigh) ? high : math.max(orbHigh, high)
+    orbLow := na(orbLow) ? low : math.min(orbLow, low)
+
+float vwap = ta.vwap(hlc3)
+float avgVolume = ta.sma(volume, volumeLen)
+bool volumeOk = not useVolume or (not na(avgVolume) and volume >= avgVolume * volumeMult)
+int minutesNow = hour(time, TZ) * 60 + minute(time, TZ)
+int minutesLast = lastEntryHour * 60 + lastEntryMinute
+bool afterOrb = inRth and not inOrb and minutesNow >= 9 * 60 + 35
+bool beforeCutoff = minutesNow <= minutesLast
+bool breakout = not na(orbHigh) and close > orbHigh and close[1] <= orbHigh
+float unitRisk = close - orbLow
+float budget = strategy.equity * riskPct / 100.0
+int riskShares = unitRisk > 0 ? int(math.floor(budget / unitRisk)) : 0
+int cashShares = close > 0 ? int(math.floor(strategy.equity * exposurePct / 100.0 / close)) : 0
+int qty = math.min(riskShares, cashShares)
+
+bool enter = oneMinute and barstate.isconfirmed and afterOrb and beforeCutoff and
+     not tradedToday and strategy.position_size == 0 and not pendingEntry and
+     breakout and close > vwap and volumeOk and qty >= 1 and strategy.equity > 0
+
+if enter
+    activeStop := orbLow
+    activeTarget := close + rr * unitRisk
+    tradedToday := true
+    pendingEntry := true
+    strategy.entry("ORB-L", strategy.long, qty=qty, comment="ORB BUY")
+    strategy.exit("ORB-X", "ORB-L", stop=activeStop, limit=activeTarget)
+
+if strategy.position_size > 0
+    pendingEntry := false
+    strategy.exit("ORB-X", "ORB-L", stop=activeStop, limit=activeTarget)
+
+if flattenWindow and strategy.position_size > 0
+    strategy.close("ORB-L", comment="EOD FLAT", immediately=true)
+
+if flattenWindow and pendingEntry and strategy.position_size == 0
+    strategy.cancel("ORB-L")
+    strategy.cancel("ORB-X")
+    pendingEntry := false
+
+plot(orbHigh, "ORB High", color=color.lime, linewidth=2, style=plot.style_linebr)
+plot(orbLow, "ORB Low / Stop", color=color.red, linewidth=2, style=plot.style_linebr)
+plot(vwap, "VWAP", color=color.orange, linewidth=2)
+plot(strategy.position_size > 0 ? activeTarget : na, "Target", color=color.aqua, style=plot.style_linebr)
+plotshape(enter, title="ORB Buy Signal", style=shape.triangleup, location=location.belowbar,
+     color=color.lime, size=size.small, text="BUY")
+bgcolor(not oneMinute ? color.new(color.red, 85) : na, title="Requires 1-minute chart")
+alertcondition(enter, title="ORB Long Signal", message="TradingAI-Pro V15.1 ORB Long signal on {{ticker}}")
