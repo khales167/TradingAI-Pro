@@ -41,7 +41,7 @@ def technical_signal(y):
 
 def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
                   max_portfolio_risk_pct=3.0, max_positions=5,
-                  commission=0.005, slippage_bps=5.0):
+                  commission=0.005, slippage_bps=5.0, record_daily=False):
     if capital <= 0 or not (0 < risk_pct <= 100) or not (0 < max_exposure_pct <= 100):
         raise ValueError("Invalid capital or risk/exposure limits")
     if not (0 < max_portfolio_risk_pct <= 100) or max_positions < 1 or commission < 0 or slippage_bps < 0:
@@ -56,6 +56,7 @@ def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
     cash = capital
     positions = {}
     trades = []
+    daily = []
     diagnostics = {"signals": 0, "accepted": 0, "rejected_risk": 0,
                    "rejected_exposure": 0, "rejected_cash": 0,
                    "rejected_portfolio_risk": 0, "rejected_positions": 0}
@@ -129,10 +130,24 @@ def run_portfolio(frames, capital=500.0, risk_pct=1.0, max_exposure_pct=40.0,
             trades.append({**p, "exit_date": date, "exit": exit_fill,
                            "reason": reason, "pl": pl})
             del positions[symbol]
+        if record_daily:
+            marked_value = sum(
+                p["shares"] * float(frames[s].iloc[i]["Close"])
+                for s, p in positions.items()
+            )
+            daily.append({
+                "date": date,
+                "cash": cash,
+                "position_value": marked_value,
+                "equity": cash + marked_value,
+                "open_positions": len(positions),
+                "open_risk": sum(p["shares"] * p["unit_risk"] for p in positions.values()),
+                "entry_exposure": sum(p["shares"] * p["entry"] for p in positions.values()),
+            })
     # Mark open positions at final close, not their entry cost.
     equity = cash + sum(p["shares"] * float(frames[s].iloc[-1]["Close"]) for s, p in positions.items())
     return {"initial_cash": capital, "cash": cash, "equity_marked": equity,
-            "trades": trades, "positions": positions, "diagnostics": diagnostics}
+            "trades": trades, "positions": positions, "diagnostics": diagnostics, "daily": daily}
 
 
 def main():
