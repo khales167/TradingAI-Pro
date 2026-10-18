@@ -36,7 +36,7 @@ def main():
             assert day["open_positions"] <= 5
         assert d["signals"] == d["accepted"] + sum(v for k, v in d.items() if k.startswith("rejected_"))
         assert d["accepted"] == len(r["trades"]) + len(r["positions"])
-        assert abs(r["cash"] + sum(p["shares"] * p["entry"] for p in r["positions"].values()) - CAPITAL - pl) < 1e-6
+        assert abs(r["cash"] + sum(p["shares"] * (p["entry"] + 0.005) for p in r["positions"].values()) - CAPITAL - pl) < 1e-6
         assert abs(r["daily"][-1]["equity"] - r["equity_marked"]) < 1e-6
         row = {
             "priority": priority, "signals": d["signals"],
